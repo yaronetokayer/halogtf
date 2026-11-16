@@ -1,9 +1,9 @@
 import numpy as np
-from pygtfcode.io.write import write_profile_snapshot, write_log_entry, write_time_evolution
-from pygtfcode.evolve.transport import conduct_implicit_tcool_dulim
-from pygtfcode.evolve.hydrostatic import revirialize, STATUS_SHELL_CROSSING #, compute_mass
-from pygtfcode.evolve.split import check_drfrac_split, check_drfrac_merge, split_grid, merge_grid, STATUS_SPLITS, STATUS_MERGES
-from pygtfcode.util.calc_runtime import low_kn_boost, calc_ltemp
+from halogtf.io.write import write_profile_snapshot, write_log_entry, write_time_evolution
+from halogtf.evolve.transport import conduct_implicit_tcool_dulim
+from halogtf.evolve.hydrostatic import revirialize, STATUS_SHELL_CROSSING #, compute_mass
+from halogtf.evolve.split import check_drfrac_split, check_drfrac_merge, split_grid, merge_grid, STATUS_SPLITS, STATUS_MERGES
+from halogtf.util.calc_runtime import low_kn_boost, calc_ltemp
 
 def run_until_stop(state, start_step, **kwargs):
     """

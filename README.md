@@ -1,6 +1,6 @@
-# pygtfcode
+# HaloGTF
 
-**pygtfcode** is a modern Python implementation of a 1D Lagrangian gravothermal fluid code. It simulates the dynamical evolution of self-interacting dark matter halos using the fluid approximation, based on a Fortran code originally developed by Prof. Frank van den Bosch (Yale University).
+**HaloGTF** is a modern Python implementation of a 1D Lagrangian gravothermal fluid code. It simulates the dynamical evolution of self-interacting dark matter halos using the fluid approximation, based on a Fortran code originally developed by Prof. Frank van den Bosch (Yale University).
 
 This implementation follows the formalism outlined in [Nishikawa et al. (2020)](https://journals.aps.org/prd/abstract/10.1103/PhysRevD.101.063009), with modular components for initialization, evolution, and output.
 
@@ -66,8 +66,8 @@ Use `help()` for documentation on any of these classes, methods, and functions.
 ### Installation
 
 ```bash
-git clone https://github.com/yaronetokayer/pygtfcode.git
-cd pygtfcode
+git clone https://github.com/yaronetokayer/halogtf.git
+cd halogtf
 pip install -e .
 ```
 
@@ -76,7 +76,7 @@ Dependencies: Python 3.12+, `numpy`, `scipy`, `numba`, `matplotlib`, `tqdm`
 ### Example usage
 
 ```python
-import pygtfcode as gtf
+import halogtf as gtf
 
 config = gtf.Config()
 state = gtf.State.from_config(config)
@@ -86,12 +86,12 @@ state.run()
 To read an existing simulation without constructing a state:
 
 ```python
-from pygtfcode.io.read import load_snapshot_bundle
+from halogtf.io.read import load_snapshot_bundle
 snapshot = load_snapshot_bundle('./sims/Model00002')  # Latest saved snapshot
 snapshot = load_snapshot_bundle('./sims/Model00002', snapshot=59)
 ```
 
-Alternatively, you can call `from pygtfcode import Config, State`.  In that case, plotting functions will not be automatically imported.
+Alternatively, you can call `from halogtf import Config, State`.  In that case, plotting functions will not be automatically imported.
 
 We can also run for a specified duration:
 ```python
@@ -128,12 +128,12 @@ If you don’t explicitly assign `config.io.model_no`, it is automatically set t
 
 ### Plotting
 
-There are three plotting functions that are imported with the `pygtfcode` package:
+There are three plotting functions that are imported with the `halogtf` package:
 
 The `plot_time_evolution()` function plots the evolution of system-wide parameters over time.  It can plot any of the columns in the `time_evolution.txt` output.
 
 ```python
-import pygtfcode as gtf
+import halogtf as gtf
 
 # Compare the central density evolution of two different simulations
 # The default plot is rho0 (the innermost-cell density)
@@ -154,7 +154,7 @@ gtf.plot_time_evolution(state1, filepath='./rho_c_vs_time.png', show=True)
 The `plot_snapshots()` function plots up to three profiles in separate panels for one or multiple snapshots of the simulation.  Snapshots are specified by the index of the `profile_x.dat` file.  Like `plot_time_evolution()`, the State object, Config object, or model number can be used to specify the simulation you wish to plot.
 
 ```python
-import pygtfcode as gtf
+import halogtf as gtf
 
 # Plot the initial density profile
 gtf.plot_snapshots(state, show=True)
@@ -173,7 +173,7 @@ gtf.plot_snapshots(state, filepath='./initial_rho.png')
 The `make_movie()` function generates animations of up to three profiles in separate panels for a simulation.  Like `plot_time_evolution()`, the State object, Config object, or model number can be used to specify the simulation you wish to plot.  Only the snapshots of the most recent run for the simulation model_no will be included, even if profiles with higher indices are in the directory from previous simulation runs.  You can check the current version of the `snapshot_conversion.txt` file for all snapshots that will be included in the animation
 
 ```python
-import pygtfcode as gtf
+import halogtf as gtf
 
 # Plot the density profile
 gtf.make_movie(state)
@@ -185,7 +185,7 @@ gtf.make_movie(2, base_dir='./', profiles=['v2', 'p'], grid=True)
 The plotting functions also exist as methods to the `State` object:
 
 ```python
-import pygtfcode as gtf
+import halogtf as gtf
 
 config = gtf.Config()
 state = gtf.State.from_config(config)
@@ -240,7 +240,7 @@ Records the time evolution of relevant quantities, written each time the central
 ## Package Layout
 
 ```
-pygtfcode/
+halogtf/
 ├── config.py               # Defines 'Config' class
 ├── state.py                # Defines 'State' class
 │
@@ -304,7 +304,7 @@ no insets or radius annotations needs only profile files
 and `snapshot_conversion.txt`, not `time_evolution.txt`.
 
 Logfile widths are set directly in the `columns` list inside
-`pygtfcode/io/write.py` → `write_log_entry()`. Each entry contains
+`halogtf/io/write.py` → `write_log_entry()`. Each entry contains
 `(header, value, minimum_width)`, for example:
 
 ```python

@@ -3,12 +3,12 @@ import unittest
 import tempfile
 from pathlib import Path
 import numpy as np
-from pygtfcode import Config, State
-from pygtfcode.evolve import transport as tr
-from pygtfcode.evolve.integrator import integrate_time_step, allocate_work_arrays
-from pygtfcode.util.calc_kp import conductivity, factors
-from pygtfcode.util.calc_runtime import calc_kappa_cell, calc_kappa_edge
-from pygtfcode.util.interpolate import interp_linear_to_interfaces
+from halogtf import Config, State
+from halogtf.evolve import transport as tr
+from halogtf.evolve.integrator import integrate_time_step, allocate_work_arrays
+from halogtf.util.calc_kp import conductivity, factors
+from halogtf.util.calc_runtime import calc_kappa_cell, calc_kappa_edge
+from halogtf.util.interpolate import interp_linear_to_interfaces
 
 
 class VelocityTransportTests(unittest.TestCase):
@@ -129,7 +129,7 @@ class VelocityTransportTests(unittest.TestCase):
             self.assertTrue(np.all(np.diff(s.r) > 0))
 
     def check_diagnostics(self, state):
-        from pygtfcode.util.calc_core import calc_core_r, calc_logmean_within_r
+        from halogtf.util.calc_core import calc_core_r, calc_logmean_within_r
         sigma = state.char.sigma_m_0_char
         what = state.char.w_char
         moments = np.array([factors(t, what, state.config.sim.smfp_order) for t in state.v2])
@@ -149,7 +149,7 @@ class VelocityTransportTests(unittest.TestCase):
             state.config.sim.b/(state.config.sim.a*state.config.sim.c)*state.kn_cond**2)
 
     def test_transport_diagnostics_lifecycle(self):
-        from pygtfcode.evolve.split import split_grid, merge_grid
+        from halogtf.evolve.split import split_grid, merge_grid
         for w in (50., np.inf):
             for order in (1, 2):
                 s = State(Config(sim=dict(w=w, smfp_order=order), io=dict(chatter=False)))
@@ -172,8 +172,8 @@ class VelocityTransportTests(unittest.TestCase):
                 self.check_diagnostics(s)
 
     def test_default_w_and_metadata(self):
-        from pygtfcode.io.write import write_metadata
-        from pygtfcode.io.read import import_metadata
+        from halogtf.io.write import write_metadata
+        from halogtf.io.read import import_metadata
         self.assertTrue(np.isposinf(Config().sim.w))
         self.assertEqual(Config().prec.du_boost, 100.)
         with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1]) as folder:
@@ -188,10 +188,10 @@ class VelocityTransportTests(unittest.TestCase):
     def test_output_schema_and_plotting(self):
         import re
         import matplotlib.pyplot as plt
-        from pygtfcode.io.read import extract_time_evolution_data, extract_snapshot_data
-        from pygtfcode.io.write import write_log_entry
-        from pygtfcode.plot.time_evolution import plot_time_evolution
-        from pygtfcode.plot.snapshot import plot_profile
+        from halogtf.io.read import extract_time_evolution_data, extract_snapshot_data
+        from halogtf.io.write import write_log_entry
+        from halogtf.plot.time_evolution import plot_time_evolution
+        from halogtf.plot.snapshot import plot_profile
         for w in (50., np.inf):
             with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1]) as folder:
                 cfg = Config(sim=dict(w=w), grid=dict(drfrac_init=.15),

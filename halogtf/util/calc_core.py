@@ -4,7 +4,7 @@ Helpers to compute quantities related to the core
 
 import math
 from numba import njit, float64, types
-from pygtfcode.util.interpolate import interp_pl_to_r
+from halogtf.util.interpolate import interp_pl_to_r
 
 ### CORE DEFINITIONS
 

@@ -5,9 +5,9 @@ Helpers for derived quantities in the integration loop
 import numpy as np
 import math
 from numba import njit, void, float64, types
-from pygtfcode.util.interpolate import interp_linear_to_interfaces, interp_pl_to_r
-from pygtfcode.util.calc_kp import factors, conductivity
-from pygtfcode.util.calc_core import calc_core_r, calc_mean_within_r
+from halogtf.util.interpolate import interp_linear_to_interfaces, interp_pl_to_r
+from halogtf.util.calc_kp import factors, conductivity
+from halogtf.util.calc_core import calc_core_r, calc_mean_within_r
 
 @njit(void(float64[:], float64[:], float64, float64, types.int64, float64[:], float64[:], float64[:], float64[:]), cache=True)
 def calc_transport_scales(v2, rho, sigma_m_0, w_char, smfp_order, kn, mfp, kn_cond, mfp_cond):

@@ -1,9 +1,9 @@
 import numpy as np
 import math
 from numba import njit, float64, types, void
-from pygtfcode.util.interpolate import interp_linear_to_interfaces
-from pygtfcode.util.calc_linalg import solve_tridiagonal_thomas
-from pygtfcode.util.calc_kp import factors
+from halogtf.util.interpolate import interp_linear_to_interfaces
+from halogtf.util.calc_linalg import solve_tridiagonal_thomas
+from halogtf.util.calc_kp import factors
 
 _TINY64 = np.finfo(np.float64).tiny
 
@@ -136,7 +136,7 @@ def build_tridiag_system_gurian(r, m, rho_int, v2, dt, a_param, b_param, c_param
     the paper's isotropic regularized v^-4 law, to isolate the closure change.
     Applies Eqs. (9)--(11), (36)--(37) of https://arxiv.org/abs/2610.28745.
     This adapts their conductivity to our scattering prescription only;
-    it retains pygtfcode's implicit update, not SIDMStars' explicit entropy
+    it retains halogtf's implicit update, not SIDMStars' explicit entropy
     subcycling, hydrostatic shooting or convection treatment.
     """
     a_gurian = 4.0 / math.sqrt(math.pi)

@@ -1,7 +1,7 @@
 import numpy as np
-from pygtfcode.profiles.nfw import menc_nfw, sigr_nfw
-from pygtfcode.profiles.abg import menc_abg, sigr_abg
-from pygtfcode.profiles.truncated_nfw import menc_trunc, sigr_trunc
+from halogtf.profiles.nfw import menc_nfw, sigr_nfw
+from halogtf.profiles.abg import menc_abg, sigr_abg
+from halogtf.profiles.truncated_nfw import menc_trunc, sigr_trunc
 
 def _as_f64(x):
     """

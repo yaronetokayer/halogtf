@@ -9,9 +9,9 @@ from unittest.mock import patch
 import matplotlib.pyplot as plt
 import numpy as np
 
-from pygtfcode import Config, State
-from pygtfcode.io.read import extract_snapshot_data, extract_time_evolution_data, load_snapshot_bundle
-from pygtfcode.plot.snapshot import plot_snapshots, plot_profile
+from halogtf import Config, State
+from halogtf.io.read import extract_snapshot_data, extract_time_evolution_data, load_snapshot_bundle
+from halogtf.plot.snapshot import plot_snapshots, plot_profile
 
 
 class PackageConsistencyTests(unittest.TestCase):
@@ -24,16 +24,16 @@ class PackageConsistencyTests(unittest.TestCase):
 
     def test_util_is_a_regular_package(self):
         import pkgutil
-        import pygtfcode
-        import pygtfcode.util
-        self.assertEqual(Path(pygtfcode.util.__file__).name, '__init__.py')
-        packages = {item.name: item.ispkg for item in pkgutil.iter_modules(pygtfcode.__path__)}
+        import halogtf
+        import halogtf.util
+        self.assertEqual(Path(halogtf.util.__file__).name, '__init__.py')
+        packages = {item.name: item.ispkg for item in pkgutil.iter_modules(halogtf.__path__)}
         self.assertTrue(packages['util'])
 
     def test_boost_uses_conductivity_core_in_driver_and_log(self):
         import re
-        from pygtfcode.evolve import integrator
-        from pygtfcode.util.calc_runtime import low_kn_boost
+        from halogtf.evolve import integrator
+        from halogtf.util.calc_runtime import low_kn_boost
         for w in (50., np.inf):
             with self.subTest(w=w), self.tempdir() as folder, contextlib.redirect_stdout(io.StringIO()):
                 cfg = self.config(folder, sim=dict(w=w))
@@ -59,7 +59,7 @@ class PackageConsistencyTests(unittest.TestCase):
                                        1., places=6)
 
     def test_per_column_log_widths(self):
-        from pygtfcode.io.write import write_log_entry
+        from halogtf.io.write import write_log_entry
         with self.tempdir() as folder:
             cfg = self.config(folder)
             state = State.from_config(cfg)
@@ -76,7 +76,7 @@ class PackageConsistencyTests(unittest.TestCase):
 
     def test_movie_dispatch_and_no_insets_without_history(self):
         from concurrent.futures import Future
-        from pygtfcode.plot import snapshot as movies
+        from halogtf.plot import snapshot as movies
         class ImmediateExecutor:
             def __init__(self, **kwargs): pass
             def __enter__(self): return self
@@ -108,7 +108,7 @@ class PackageConsistencyTests(unittest.TestCase):
                 movies.make_movie(cfg, parallel=False, insets=True)
 
     def test_parameter_validation(self):
-        from pygtfcode.parameters import SimParams, GridParams, PrecisionParams, IOParams
+        from halogtf.parameters import SimParams, GridParams, PrecisionParams, IOParams
         for key in ('sigma_m_0', 'a', 'b', 'c', 'alph'):
             for invalid in (0., -1., np.nan, np.inf, True):
                 with self.subTest(key=key, invalid=invalid), self.assertRaises(ValueError):
@@ -130,8 +130,8 @@ class PackageConsistencyTests(unittest.TestCase):
         self.assertIn('Model00001', repr(IOParams(model_no=1)))
 
     def test_profile_scalar_array_contracts(self):
-        from pygtfcode.profiles.nfw import sigr_nfw
-        from pygtfcode.profiles.abg import menc_abg, sigr_abg
+        from halogtf.profiles.nfw import sigr_nfw
+        from halogtf.profiles.abg import menc_abg, sigr_abg
         for function, config in ((sigr_nfw, Config()),
                                  (menc_abg, Config(init=('abg', dict(alpha=2., beta=5., gamma=0.)))),
                                  (sigr_abg, Config(init=('abg', dict(alpha=2., beta=5., gamma=0.))))):
@@ -195,8 +195,8 @@ class PackageConsistencyTests(unittest.TestCase):
                 self.assertTrue(np.isfinite(getattr(loaded, name)).all())
 
     def test_zero_gradients_and_small_diagnostics(self):
-        from pygtfcode.util.calc_runtime import calc_ltemp
-        from pygtfcode.util.calc_slopes import calc_dlnrho_dlnr, calc_dlnv_dlnr, calc_dlogrho_dlogp
+        from halogtf.util.calc_runtime import calc_ltemp
+        from halogtf.util.calc_slopes import calc_dlnrho_dlnr, calc_dlnv_dlnr, calc_dlogrho_dlogp
         T = np.ones(5); r = np.arange(1., 6.); output = np.empty(5)
         calc_ltemp(output, T, r)
         self.assertTrue(np.isnan(output[:2]).all())
@@ -226,7 +226,7 @@ class PackageConsistencyTests(unittest.TestCase):
                 fig.canvas.draw(); plt.close(fig)
 
     def test_nonfinite_implicit_solution_is_rejected(self):
-        from pygtfcode.evolve import transport as tr
+        from halogtf.evolve import transport as tr
         r = np.r_[0., np.geomspace(.1, 2., 8)]
         m = r**3/3; rho = np.ones(8); T = np.ones(8)
         def invalid_solve(a,b,c,d,out):
@@ -244,7 +244,7 @@ class PackageConsistencyTests(unittest.TestCase):
                 np.testing.assert_array_equal(diagnostic, -7.)
 
     def test_implicit_theta_uses_amplitude_time_units(self):
-        from pygtfcode.evolve import transport as tr
+        from halogtf.evolve import transport as tr
         r = np.r_[0., np.geomspace(.1, 2., 8)]
         m = r**3/3; rho = np.ones(8); T = np.linspace(1., 1.1, 8)
         old = T.copy(); dv = np.empty(8); theta = np.empty(8)

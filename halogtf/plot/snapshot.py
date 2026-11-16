@@ -5,7 +5,7 @@ from matplotlib.ticker import MaxNLocator, NullLocator, ScalarFormatter
 import subprocess
 from tqdm import tqdm
 import shutil
-from pygtfcode.io.read import extract_snapshot_data, extract_snapshot_indices, extract_time_evolution_data
+from halogtf.io.read import extract_snapshot_data, extract_snapshot_indices, extract_time_evolution_data
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 VALID_PROFILES = [

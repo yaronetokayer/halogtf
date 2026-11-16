@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from pygtfcode.io.read import extract_time_evolution_data
+from halogtf.io.read import extract_time_evolution_data
 
 def plot_time_evolution(models, quantity='rho0', ylabel=None, logy=True, filepath=None, base_dir=None, show=False, grid=False):
     """
