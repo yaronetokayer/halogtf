@@ -35,7 +35,7 @@ class State:
         self.char = self._set_param()
         if ic_filepath is None:
             if self.config.init.profile == 'truncated_nfw': # Numerical integrations for non-analytic truncated NFW profile
-                from pygtfcode.profiles.truncated_nfw import integrate_potential, generate_rho_lookup
+                from halogtf.profiles.truncated_nfw import integrate_potential, generate_rho_lookup
                 self.rho_interp = generate_rho_lookup(config)
                 self.rcut, self.config.grid.rmax, self.pot_interp, self.pot_rad, self.pot = integrate_potential(config, self.rho_interp)
 
@@ -56,7 +56,7 @@ class State:
         State
             A new State object initialized with the given configuration.
         """
-        from pygtfcode.io.write import make_dir, write_metadata, write_profile_snapshot, write_char_params
+        from halogtf.io.write import make_dir, write_metadata, write_profile_snapshot, write_char_params
 
         state = cls(config, ic_filepath=ic_filepath)
         state.reset(ic_filepath=ic_filepath)                                    # Initialize all state variables
@@ -92,8 +92,8 @@ class State:
             raise FileNotFoundError(f"Model directory does not exist: {p}")
         
         # Imports
-        from pygtfcode.io.read import import_metadata, load_snapshot_bundle
-        from pygtfcode.config import Config
+        from halogtf.io.read import import_metadata, load_snapshot_bundle
+        from halogtf.config import Config
 
         meta = import_metadata(p)
         snapshot_bundle = load_snapshot_bundle(p, snapshot=snapshot)
@@ -157,7 +157,7 @@ class State:
         State
             A new State object initialized with the given configuration.
         """
-        from pygtfcode.io.write import write_profile_snapshot
+        from halogtf.io.write import write_profile_snapshot
         
         state = cls(config)
         config = state.config
@@ -172,9 +172,9 @@ class State:
         """
         Compute and set characteristic physical quantities based on InitParams.
         """
-        from pygtfcode.parameters.char_params import CharParams
-        from pygtfcode.profiles.nfw import fNFW
-        from pygtfcode.parameters.constants import Constants as const
+        from halogtf.parameters.char_params import CharParams
+        from halogtf.profiles.nfw import fNFW
+        from halogtf.parameters.constants import Constants as const
 
         if self.config.io.chatter:
             print("Computing characteristic parameters for simulation...")
@@ -201,7 +201,7 @@ class State:
             char.m_s = Mvir_h / char.fc # Changed from Mvir_h - check this
             
         else:
-            from pygtfcode.profiles.abg import chi
+            from halogtf.profiles.abg import chi
             char.chi = float(chi(self.config))
             char.m_s = Mvir_h / char.chi
             char.r_s *= ( char.fc / char.chi )**(1.0/3.0)
@@ -285,8 +285,8 @@ class State:
             - maxvel: maximum velocity dispersion
             - kn_c: Knudsen number of the core
         """
-        from pygtfcode.profiles.profile_routines import menc, sigr
-        from pygtfcode.util.calc_runtime import calc_ltemp
+        from halogtf.profiles.profile_routines import menc, sigr
+        from halogtf.util.calc_runtime import calc_ltemp
 
         if self.config.io.chatter:
             print("Initializing profiles...")
@@ -300,7 +300,7 @@ class State:
 
         ### For Frank ###
         if self.config.init.profile == 'truncated_nfw':
-            from pygtfcode.profiles.nfw import fNFW
+            from halogtf.profiles.nfw import fNFW
             # Calculate Mtot / M200
             mtot = menc(self.rcut, self, chatter=False)
             fc = fNFW(self.config.init.cvir)
@@ -356,8 +356,8 @@ class State:
         ic_filepath : str
             Path to the snapshot file containing initial conditions.
         """
-        from pygtfcode.io.read import extract_snapshot_data
-        from pygtfcode.util.calc_runtime import calc_ltemp
+        from halogtf.io.read import extract_snapshot_data
+        from halogtf.util.calc_runtime import calc_ltemp
 
         if self.config.io.chatter:
             print(f"Loading initial conditions from {ic_filepath} ...")
@@ -402,8 +402,8 @@ class State:
         Fine-tunes initial profile to ensure hydrostatic equilibrium.
         Iteratively runs revirialize() until max |dr/r| < eps_dr.
         """
-        from pygtfcode.evolve.hydrostatic import revirialize_w_he_resid, compute_he_pressures_with_resid, STATUS_SHELL_CROSSING
-        from pygtfcode.util.calc_runtime import calc_ltemp
+        from halogtf.evolve.hydrostatic import revirialize_w_he_resid, compute_he_pressures_with_resid, STATUS_SHELL_CROSSING
+        from halogtf.util.calc_runtime import calc_ltemp
         chatter = self.config.io.chatter
 
         if chatter:
@@ -465,7 +465,7 @@ class State:
         """
         Resets initial state
         """
-        from pygtfcode.util.calc_core import calc_core_r, calc_logmean_within_r
+        from halogtf.util.calc_core import calc_core_r, calc_logmean_within_r
 
         config = self.config
 
@@ -516,8 +516,8 @@ class State:
         rho_c: float, optional
             Max central denisty value to advance until
         """
-        from pygtfcode.evolve.integrator import run_until_stop
-        from pygtfcode.io.write import write_log_entry, write_profile_snapshot, write_time_evolution
+        from halogtf.evolve.integrator import run_until_stop
+        from halogtf.io.write import write_log_entry, write_profile_snapshot, write_time_evolution
         from time import time as _now
 
         start = _now()
@@ -552,8 +552,8 @@ class State:
         """
         Method to print characteristic quantities in physical units
         """
-        from pygtfcode.profiles.profile_routines import menc
-        from pygtfcode.parameters.constants import Constants as const
+        from halogtf.profiles.profile_routines import menc
+        from halogtf.parameters.constants import Constants as const
 
         char = self.char
         init = self.config.init
@@ -600,7 +600,7 @@ class State:
         grid : bool, optional
             If True, shows grid on axis
         """
-        from pygtfcode.plot.time_evolution import plot_time_evolution
+        from halogtf.plot.time_evolution import plot_time_evolution
 
         plot_time_evolution(self, **kwargs)
 
@@ -622,7 +622,7 @@ class State:
         grid : bool, optional
             If True, shows grid on axes
         """
-        from pygtfcode.plot.snapshot import plot_snapshots
+        from halogtf.plot.snapshot import plot_snapshots
 
         snapshots = kwargs.pop('snapshots', -1)
         plot_snapshots(self, snapshots=snapshots, **kwargs)
@@ -648,7 +648,7 @@ class State:
         None
             Saves the movie as an MP4 file in the model directory.
         """
-        from pygtfcode.plot.snapshot import make_movie
+        from halogtf.plot.snapshot import make_movie
 
         make_movie(self, **kwargs)
 

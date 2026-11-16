@@ -1,10 +1,10 @@
 import numpy as np
 import os
-from pygtfcode.io.read import extract_time_evolution_data
-from pygtfcode.util.calc_slopes import calc_balberg_zeta, calc_dlnmc_dlnvc, calc_dlnrhoc_dlnvc, calc_s_dsdr, calc_sc1, calc_sc2, calc_dlogrho_dlogp
-from pygtfcode.util.calc_core import calc_smfp_r_rho_m_v2, calc_core_r_rho_m_v2, calc_rmn_rho_m_v2, calc_mintheta_r_rho_m_v2
-from pygtfcode.util.calc_runtime import low_kn_boost, calc_kappa_cell, calc_kappa_edge
-from pygtfcode.parameters.constants import Constants as const
+from halogtf.io.read import extract_time_evolution_data
+from halogtf.util.calc_slopes import calc_balberg_zeta, calc_dlnmc_dlnvc, calc_dlnrhoc_dlnvc, calc_s_dsdr, calc_sc1, calc_sc2, calc_dlogrho_dlogp
+from halogtf.util.calc_core import calc_smfp_r_rho_m_v2, calc_core_r_rho_m_v2, calc_rmn_rho_m_v2, calc_mintheta_r_rho_m_v2
+from halogtf.util.calc_runtime import low_kn_boost, calc_kappa_cell, calc_kappa_edge
+from halogtf.parameters.constants import Constants as const
 
 def _safe_div(num, den):
     return 0.0 if den == 0 else num / den

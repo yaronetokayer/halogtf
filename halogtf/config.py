@@ -1,14 +1,14 @@
 from typing import Dict, Any
-from pygtfcode.parameters.io_params import IOParams
-from pygtfcode.parameters.grid_params import GridParams
-from pygtfcode.parameters.init_params import (
+from halogtf.parameters.io_params import IOParams
+from halogtf.parameters.grid_params import GridParams
+from halogtf.parameters.init_params import (
     InitParams,
     NFWParams,
     make_init_params,
 )
-from pygtfcode.parameters.prec_params import PrecisionParams
-from pygtfcode.parameters.sim_params import SimParams
-from pygtfcode.parameters.cosmo_params import CosmoParams
+from halogtf.parameters.prec_params import PrecisionParams
+from halogtf.parameters.sim_params import SimParams
+from halogtf.parameters.cosmo_params import CosmoParams
 
 def _init_param(param_class, arg):
     if arg is None:
@@ -59,7 +59,7 @@ class Config:
     @classmethod
     def from_dict(cls, meta: Dict[str, Dict[str, Any]]) -> "Config":
         """
-        Build a Config from the nested dict produced by pygtfcode.io.read.import_metadata().
+        Build a Config from the nested dict produced by halogtf.io.read.import_metadata().
 
         This is used when a state is constructed with State.from_dir().
 

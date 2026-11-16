@@ -14,7 +14,7 @@ grid:
     _rmax: 200.0
     _rmin: 0.01
 io:
-    _base_dir: /Users/yaronetokayer/YaleDrive/Research/SIDM/pygtfcode/examples
+    _base_dir: /Users/yaronetokayer/YaleDrive/Research/SIDM/halogtf/examples
     _chatter: True
     _drho_prof: 0.1
     _drho_tevol: 0.01

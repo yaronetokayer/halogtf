@@ -5,8 +5,8 @@ Helpers to for derived quantities in the integration loop
 import numpy as np
 import math
 from numba import njit, void, float64, types
-from pygtfcode.util.interpolate import interp_linear_to_interfaces, interp_pl_to_r
-from pygtfcode.util.calc_core import calc_core_r, calc_mean_within_r
+from halogtf.util.interpolate import interp_linear_to_interfaces, interp_pl_to_r
+from halogtf.util.calc_core import calc_core_r, calc_mean_within_r
 
 @njit(float64(float64, float64, float64, float64), fastmath=True, cache=True)
 def low_kn_boost(kn_c, kn_threshold, boost, width):

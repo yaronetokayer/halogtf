@@ -1,7 +1,7 @@
 import numpy as np
-from pygtfcode.profiles.nfw import menc_nfw, sigr_nfw
-from pygtfcode.profiles.abg import menc_abg, sigr_abg
-from pygtfcode.profiles.truncated_nfw import menc_trunc, sigr_trunc
+from halogtf.profiles.nfw import menc_nfw, sigr_nfw
+from halogtf.profiles.abg import menc_abg, sigr_abg
+from halogtf.profiles.truncated_nfw import menc_trunc, sigr_trunc
 
 def _as_f64(x):
     """
@@ -65,9 +65,9 @@ def sigr(r, state):
         raise ValueError(f"Unsupported profile type: {profile}")
 
 
-# from pygtfcode.profiles.nfw import fNFW
-# # from pygtfcode.profiles.truncated_nfw import toint4
-# # from pygtfcode.profiles.abg import toint4b
+# from halogtf.profiles.nfw import fNFW
+# # from halogtf.profiles.truncated_nfw import toint4
+# # from halogtf.profiles.abg import toint4b
 # from scipy.integrate import quad
 
 # def menc(r, config):

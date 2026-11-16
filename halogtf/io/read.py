@@ -33,7 +33,7 @@ def _coerce_scalar(s: str) -> Union[bool, int, float, str]:
 
 def extract_time_evolution_data(filepath):
     """
-    Extract time-evolution data from a pygtfcode time_evolution.txt file.
+    Extract time-evolution data from a halogtf time_evolution.txt file.
 
     Parameters
     ----------
