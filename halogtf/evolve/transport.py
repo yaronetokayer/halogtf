@@ -7,8 +7,8 @@ from halogtf.util.calc_kp import factors
 
 _TINY64 = np.finfo(np.float64).tiny
 
-@njit(void(float64[:], float64[:], float64[:], float64[:], float64, float64, float64, float64, float64, float64, float64, types.int64, float64[:], float64[:], float64[:], float64[:]), cache=True)
-def build_tridiag_system(r, m, rho_int, v2, dt, a_param, b_param, c_param, alph, sigma_m_0_char, w_char, smfp_order, a, b, c, d,):
+@njit(void(float64[:], float64[:], float64[:], float64[:], float64, float64, float64, float64, float64, float64, float64, types.int64, float64[:], float64[:], float64[:], float64[:], types.int64), cache=True)
+def build_tridiag_system(r, m, rho_int, v2, dt, a_param, b_param, c_param, alph, sigma_m_0_char, w_char, smfp_order, a, b, c, d, model_id,):
     """
     Build tridiagonal system for implicit conduction update in v2:
 
@@ -44,6 +44,8 @@ def build_tridiag_system(r, m, rho_int, v2, dt, a_param, b_param, c_param, alph,
         See Outmezguine et al. (2023), Appendix B. Options are 1 and 2.
     a, b, c, d : ndarray, shape (N,)
         Output tridiagonal coefficients and RHS, filled in place.
+    model_id: int
+        Scattering model integer ID
     """
     n = v2.shape[0] # Number of cells with unknown dv2 values
     sqrt2 = math.sqrt(2.0)
@@ -70,7 +72,7 @@ def build_tridiag_system(r, m, rho_int, v2, dt, a_param, b_param, c_param, alph,
         T_face = 0.5 * (v2C + v2R)
 
         k_lmfp, k_smfp, slope_lmfp, slope_smfp = factors(
-            T_face, w_char, smfp_order,
+            T_face, w_char, model_id, smfp_order,
         )
 
         # SMFP and LMFP resistances: k = sqrt(T) / (S^alph+L^alph)^(1/alph).
@@ -117,8 +119,8 @@ def build_tridiag_system(r, m, rho_int, v2, dt, a_param, b_param, c_param, alph,
     c[n - 1] = 0.0
     d[n - 1] = fluxL
 
-@njit(void(float64[:], float64[:], float64[:], float64[:], float64, float64, float64, float64, float64, float64, float64, types.int64, float64[:], float64[:], float64[:], float64[:]), cache=True)
-def build_tridiag_system_gurian(r, m, rho_int, v2, dt, a_param, b_param, c_param, alph, sigma_m_0_char, w_char, smfp_order, a, b, c, d,):
+@njit(void(float64[:], float64[:], float64[:], float64[:], float64, float64, float64, float64, float64, float64, float64, types.int64, float64[:], float64[:], float64[:], float64[:], types.int64), cache=True)
+def build_tridiag_system_gurian(r, m, rho_int, v2, dt, a_param, b_param, c_param, alph, sigma_m_0_char, w_char, smfp_order, a, b, c, d, model_id):
     """Testing builder using Gurian's closure with the current scattering moments.
 
     Same arguments, units, boundary conditions and sliding window as
@@ -163,7 +165,7 @@ def build_tridiag_system_gurian(r, m, rho_int, v2, dt, a_param, b_param, c_param
         dvR = v2R - v2C
         T_face = 0.5 * (v2C + v2R)
 
-        k_lmfp, k_smfp, slope_lmfp, slope_smfp = factors(T_face, w_char, 2)
+        k_lmfp, k_smfp, slope_lmfp, slope_smfp = factors(T_face, w_char, model_id, 2)
         # factors() normalizes second order by 45/44; Gurian uses the raw
         # combination. A constant multiplier does not change d ln(K)/d ln(T).
         # Apply this also at w_char=inf, where factors() returns k_smfp=1.
@@ -210,8 +212,8 @@ def build_tridiag_system_gurian(r, m, rho_int, v2, dt, a_param, b_param, c_param
     c[n - 1] = 0.0
     d[n - 1] = fluxL
 
-@njit(types.Tuple((float64, float64, types.int64))(float64[:], float64[:], float64[:], float64[:], float64[:], float64[:], float64, float64, float64, float64, float64, float64, types.int64, float64), cache=True)
-def conduct_implicit_nolim(v2, rho, r, m, dv2, rho_int, dt, a_param, b_param, c_param, sigma_m_0, w_char, smfp_order, alph,):
+@njit(types.Tuple((float64, float64, types.int64))(float64[:], float64[:], float64[:], float64[:], float64[:], float64[:], float64, float64, float64, float64, float64, float64, types.int64, float64, types.int64), cache=True)
+def conduct_implicit_nolim(v2, rho, r, m, dv2, rho_int, dt, a_param, b_param, c_param, sigma_m_0, w_char, smfp_order, alph, model_id):
     """
     Implicit conduction step on v2.
 
@@ -237,7 +239,7 @@ def conduct_implicit_nolim(v2, rho, r, m, dv2, rho_int, dt, a_param, b_param, c_
 
     interp_linear_to_interfaces(r, rho, rho_int)
 
-    build_tridiag_system(r, m, rho_int, v2, dt, a_param, b_param, c_param, alph, sigma_m_0, w_char, smfp_order, a, b, c, d,)
+    build_tridiag_system(r, m, rho_int, v2, dt, a_param, b_param, c_param, alph, sigma_m_0, w_char, smfp_order, a, b, c, d, model_id)
     solve_tridiagonal_thomas(a, b, c, d, dv2, gam)
 
     tiny = _TINY64
@@ -253,8 +255,8 @@ def conduct_implicit_nolim(v2, rho, r, m, dv2, rho_int, dt, a_param, b_param, c_
 
     return du_max, dt, 0
 
-@njit(types.Tuple((float64, float64, types.int64))(float64[:], float64[:], float64[:], float64[:], float64[:], float64[:], float64[:], float64, float64, float64, float64, float64, float64, types.int64, float64), cache=True)
-def conduct_implicit_tcool_nolim(v2, rho, r, m, dv2, t_cool, rho_int, dt, a_param, b_param, c_param, sigma_m_0, w_char, smfp_order, alph,):
+@njit(types.Tuple((float64, float64, types.int64))(float64[:], float64[:], float64[:], float64[:], float64[:], float64[:], float64[:], float64, float64, float64, float64, float64, float64, types.int64, float64, types.int64), cache=True)
+def conduct_implicit_tcool_nolim(v2, rho, r, m, dv2, t_cool, rho_int, dt, a_param, b_param, c_param, sigma_m_0, w_char, smfp_order, alph, model_id):
     """
     Implicit conduction step on v2.
 
@@ -280,7 +282,7 @@ def conduct_implicit_tcool_nolim(v2, rho, r, m, dv2, t_cool, rho_int, dt, a_para
 
     interp_linear_to_interfaces(r, rho, rho_int)
 
-    build_tridiag_system(r, m, rho_int, v2, dt, a_param, b_param, c_param, alph, sigma_m_0, w_char, smfp_order, a, b, c, d,)
+    build_tridiag_system(r, m, rho_int, v2, dt, a_param, b_param, c_param, alph, sigma_m_0, w_char, smfp_order, a, b, c, d, model_id)
     solve_tridiagonal_thomas(a, b, c, d, dv2, gam)
 
     tiny = _TINY64
@@ -303,8 +305,8 @@ def conduct_implicit_tcool_nolim(v2, rho, r, m, dv2, t_cool, rho_int, dt, a_para
 
     return du_max, dt, 0
 
-@njit(types.Tuple((float64, float64, types.int64))(float64[:], float64[:], float64[:], float64[:], float64[:], float64[:], float64[:], float64, float64, float64, float64, float64, float64, types.int64, float64), cache=True)
-def conduct_implicit_Theta_nolim(v2, rho, r, m, dv2, Th, rho_int, dt, a_param, b_param, c_param, sigma_m_0, w_char, smfp_order, alph,):
+@njit(types.Tuple((float64, float64, types.int64))(float64[:], float64[:], float64[:], float64[:], float64[:], float64[:], float64[:], float64, float64, float64, float64, float64, float64, types.int64, float64, types.int64), cache=True)
+def conduct_implicit_Theta_nolim(v2, rho, r, m, dv2, Th, rho_int, dt, a_param, b_param, c_param, sigma_m_0, w_char, smfp_order, alph, model_id):
     """
     Implicit conduction step on v2.
 
@@ -333,7 +335,7 @@ def conduct_implicit_Theta_nolim(v2, rho, r, m, dv2, Th, rho_int, dt, a_param, b
 
     interp_linear_to_interfaces(r, rho, rho_int)
 
-    build_tridiag_system(r, m, rho_int, v2, dt, a_param, b_param, c_param, alph, sigma_m_0, w_char, smfp_order, a, b, c, d,)
+    build_tridiag_system(r, m, rho_int, v2, dt, a_param, b_param, c_param, alph, sigma_m_0, w_char, smfp_order, a, b, c, d, model_id)
     solve_tridiagonal_thomas(a, b, c, d, dv2, gam)
 
     tiny = _TINY64
@@ -361,8 +363,8 @@ def conduct_implicit_Theta_nolim(v2, rho, r, m, dv2, Th, rho_int, dt, a_param, b
 
     return du_max, dt, 0
 
-@njit(types.Tuple((float64, float64, types.int64))(float64[:], float64[:], float64[:], float64[:], float64[:], float64[:], float64, float64, float64, float64, float64, float64, types.int64, float64, float64, types.int64), cache=True)
-def conduct_implicit_dulim(v2, rho, r, m, dv2, rho_int, dt, a_param, b_param, c_param, sigma_m_0, w_char, smfp_order, alph, eps_du, max_iter,):
+@njit(types.Tuple((float64, float64, types.int64))(float64[:], float64[:], float64[:], float64[:], float64[:], float64[:], float64, float64, float64, float64, float64, float64, types.int64, float64, types.int64, float64, types.int64), cache=True)
+def conduct_implicit_dulim(v2, rho, r, m, dv2, rho_int, dt, a_param, b_param, c_param, sigma_m_0, w_char, smfp_order, alph, model_id, eps_du, max_iter,):
     """
     Implicit conduction step on v2.
 
@@ -400,7 +402,7 @@ def conduct_implicit_dulim(v2, rho, r, m, dv2, rho_int, dt, a_param, b_param, c_
 
     for j in range(max_iter):
 
-        build_tridiag_system(r, m, rho_int, v2, dt_trial, a_param, b_param, c_param, alph, sigma_m_0, w_char, smfp_order, a, b, c, d,)
+        build_tridiag_system(r, m, rho_int, v2, dt_trial, a_param, b_param, c_param, alph, sigma_m_0, w_char, smfp_order, a, b, c, d, model_id)
         solve_tridiagonal_thomas(a, b, c, d, dv2, gam)
 
         du_max = 0.0
@@ -427,8 +429,8 @@ def conduct_implicit_dulim(v2, rho, r, m, dv2, rho_int, dt, a_param, b_param, c_
 
     return du_max, dt_trial, -1
 
-@njit(types.Tuple((float64, float64, types.int64))(float64[:], float64[:], float64[:], float64[:], float64[:], float64[:], float64[:], float64, float64, float64, float64, float64, float64, types.int64, float64, float64, types.int64), cache=True)
-def conduct_implicit_tcool_dulim(v2, rho, r, m, dv2, t_cool, rho_int, dt, a_param, b_param, c_param, sigma_m_0, w_char, smfp_order, alph, eps_du, max_iter,):
+@njit(types.Tuple((float64, float64, types.int64))(float64[:], float64[:], float64[:], float64[:], float64[:], float64[:], float64[:], float64, float64, float64, float64, float64, float64, types.int64, float64, types.int64, float64, types.int64), cache=True)
+def conduct_implicit_tcool_dulim(v2, rho, r, m, dv2, t_cool, rho_int, dt, a_param, b_param, c_param, sigma_m_0, w_char, smfp_order, alph, model_id, eps_du, max_iter,):
     """
     Implicit conduction step on v2.
 
@@ -466,7 +468,7 @@ def conduct_implicit_tcool_dulim(v2, rho, r, m, dv2, t_cool, rho_int, dt, a_para
 
     for j in range(max_iter):
 
-        build_tridiag_system(r, m, rho_int, v2, dt_trial, a_param, b_param, c_param, alph, sigma_m_0, w_char, smfp_order, a, b, c, d,)
+        build_tridiag_system(r, m, rho_int, v2, dt_trial, a_param, b_param, c_param, alph, sigma_m_0, w_char, smfp_order, a, b, c, d, model_id)
         solve_tridiagonal_thomas(a, b, c, d, dv2, gam)
 
         du_max = 0.0
@@ -502,8 +504,8 @@ def conduct_implicit_tcool_dulim(v2, rho, r, m, dv2, t_cool, rho_int, dt, a_para
 
     return du_max, dt_trial, -1
 
-@njit(types.Tuple((float64, float64, types.int64))(float64[:], float64[:], float64[:], float64[:], float64[:], float64[:], float64[:], float64, float64, float64, float64, float64, float64, types.int64, float64, float64, types.int64), cache=True)
-def conduct_implicit_Theta_dulim(v2, rho, r, m, dv2, Th, rho_int, dt, a_param, b_param, c_param, sigma_m_0, w_char, smfp_order, alph, eps_du, max_iter,):
+@njit(types.Tuple((float64, float64, types.int64))(float64[:], float64[:], float64[:], float64[:], float64[:], float64[:], float64[:], float64, float64, float64, float64, float64, float64, types.int64, float64, types.int64, float64, types.int64), cache=True)
+def conduct_implicit_Theta_dulim(v2, rho, r, m, dv2, Th, rho_int, dt, a_param, b_param, c_param, sigma_m_0, w_char, smfp_order, alph, model_id, eps_du, max_iter,):
     """
     Implicit conduction step on v2.
 
@@ -546,7 +548,7 @@ def conduct_implicit_Theta_dulim(v2, rho, r, m, dv2, Th, rho_int, dt, a_param, b
 
     for j in range(max_iter):
 
-        build_tridiag_system(r, m, rho_int, v2, dt_trial, a_param, b_param, c_param, alph, sigma_m_0, w_char, smfp_order, a, b, c, d,)
+        build_tridiag_system(r, m, rho_int, v2, dt_trial, a_param, b_param, c_param, alph, sigma_m_0, w_char, smfp_order, a, b, c, d, model_id)
         solve_tridiagonal_thomas(a, b, c, d, dv2, gam)
 
         du_max = 0.0

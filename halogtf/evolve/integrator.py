@@ -193,7 +193,7 @@ def integrate_time_step(state, config,                                          
     a = float(scatter.a); b = float(scatter.b); c = float(scatter.c)
     smfp_order = scatter.smfp_order
     sigma_m_0 = float(char.sigma_m_0_char); w_char = float(char.w_char)
-    alph = float(scatter.alph)
+    alph = float(scatter.alph); model_id = scatter.model_id
     eps_dr = float(num.eps_dr)
     max_iter_du = num.max_iter_du; max_iter_dr = num.max_iter_dr
 
@@ -211,7 +211,7 @@ def integrate_time_step(state, config,                                          
 
     ### Step 1: Energy transport ###
     # implicit: work_n1 used to store dv2, x_alloc used for rho_int
-    du_max, dt_prop, iter_du = conduct_implicit_tcool_dulim(v2, rho, r, m, work_n1, t_cool, x_alloc, dt_prop, a, b, c, sigma_m_0, w_char, smfp_order, alph, eps_du_eff, max_iter_du)
+    du_max, dt_prop, iter_du = conduct_implicit_tcool_dulim(v2, rho, r, m, work_n1, t_cool, x_alloc, dt_prop, a, b, c, sigma_m_0, w_char, smfp_order, alph, model_id, eps_du_eff, max_iter_du)
     
     if iter_du == -1:
         raise RuntimeError(f"Step {step_count}: Max iterations exceeded in implicit conduction step.")

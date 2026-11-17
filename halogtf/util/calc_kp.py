@@ -10,6 +10,7 @@ Individual moments retain the finite-epsilon normalization of the fit.
 import math
 import numpy as np
 from numba import njit
+from halogtf.util.shared_globals import MODEL_RUTHERFORD, MODEL_MOLLER
 
 # Rows correspond to p = 3, 5, 7, 9; columns contain p0, p1, p2, p3.
 COEFF_MOLLER = np.array([
@@ -19,7 +20,7 @@ COEFF_MOLLER = np.array([
     [80.0, 1.32953,   0.43, 0.76],
 ])
 
-COEFF_YUKAWA = np.array([
+COEFF_RUTHERFORD = np.array([
     [8.0,  0.092431,  0.3691, 0.6799],
     [24.0, 0.682750,  0.4072, 0.7640],
     [48.0, 0.682602,  0.4171, 0.7924],
@@ -44,7 +45,7 @@ def softplus(z):
     return max(z, 0.0) + math.log1p(math.exp(-abs(z)))
 
 @njit(fastmath=True, cache=True)
-def kp_log_slope(x, p):
+def kp_log_slope(x, p, model_id):
     """
     Compute the logarithm of Kp and its logarithmic velocity slope.
 
@@ -55,6 +56,8 @@ def kp_log_slope(x, p):
         Must be finite and nonnegative.
     p : int
         Moment index. Supported values are 3, 5, 7, and 9.
+    model_id : int
+        Scattering model identifier. Use MODEL_RUTHERFORD or MODEL_MOLLER.
 
     Returns
     -------
@@ -72,7 +75,10 @@ def kp_log_slope(x, p):
     if p not in (3, 5, 7, 9) or x < 0 or not math.isfinite(x):
         raise ValueError('Require finite x>=0 and p in (3,5,7,9)')
 
-    p0, p1, p2, p3 = COEFF_MOLLER[(p - 3) // 2]
+    if model_id == MODEL_RUTHERFORD:
+        p0, p1, p2, p3 = COEFF_RUTHERFORD[(p - 3) // 2]
+    elif model_id == MODEL_MOLLER:
+        p0, p1, p2, p3 = COEFF_MOLLER[(p - 3) // 2]
 
     # Stable logarithm of s = x^4 + epsilon, including x = 0.
     log_x4 = 4 * math.log(x) if x > 0 else -math.inf
@@ -96,7 +102,7 @@ def kp_log_slope(x, p):
     return log_kp, slope
 
 @njit(fastmath=True, cache=True)
-def factors(T, what, order=2):
+def factors(T, what, model_id, order=2):
     """
     Compute LMFP and SMFP transport factors and their temperature slopes.
 
@@ -108,6 +114,8 @@ def factors(T, what, order=2):
     what : float
         Positive dimensionless velocity scale w / v_s (char.w_char).
         Positive infinity selects the exact constant-cross-section branch.
+    model_id : int
+        Scattering model identifier. Use MODEL_RUTHERFORD or MODEL_MOLLER.
     order : int, optional
         SMFP approximation order, either 1 or 2. Defaults to 2.
         Order 1 uses K5; order 2 uses the normalized K5, K7, K9 combination.
@@ -135,7 +143,7 @@ def factors(T, what, order=2):
         return 1.0, 1.0, 0.0, 0.0
 
     x = math.sqrt(T) / what
-    log_k5, slope_k5 = kp_log_slope(x, 5)
+    log_k5, slope_k5 = kp_log_slope(x, 5, model_id)
     k5 = math.exp(log_k5)
     slope_k5 *= 0.5
 
@@ -144,8 +152,8 @@ def factors(T, what, order=2):
     if order != 2:
         raise ValueError('order must be 1 or 2')
 
-    log_k7, slope_k7 = kp_log_slope(x, 7)
-    log_k9, slope_k9 = kp_log_slope(x, 9)
+    log_k7, slope_k7 = kp_log_slope(x, 7, model_id)
+    log_k9, slope_k9 = kp_log_slope(x, 9, model_id)
     slope_k7 *= 0.5
     slope_k9 *= 0.5
 

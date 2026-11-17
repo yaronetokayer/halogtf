@@ -1,4 +1,5 @@
 import math
+from halogtf.util.shared_globals import SCATTER_MODEL_IDS
 
 class ScatterParams:
     """
@@ -6,6 +7,8 @@ class ScatterParams:
 
     Attributes
     ----------
+    model : str
+        Scattering model, either 'rutherford' or 'moller'.
     sigma_m_0 : float
         Physical low-velocity isotropic-equivalent cross section per mass in cm^2/g. Must be positive.
         At low velocities the cross section per unit mass reduces to this value.
@@ -21,11 +24,6 @@ class ScatterParams:
     alph : float
         Coefficient for interpolation scheme between lmfp and smfp regimes.
         kappa = ( kappa_smfp^-alph + kappa_lmfp^-alph )^(-1/alph). Must be positive.
-    t_halt : float
-        Absolute simulation halt time in t_s units. Positive infinity disables it.
-    rho0_halt : float
-        Innermost-cell density rho[0]/rho_s at which to halt after t > 50 t_s.
-        Positive infinity disables this limit.
     a : float
         Model parameter 'a'. Must be positive.
     b : float
@@ -38,6 +36,7 @@ class ScatterParams:
     """
     def __init__(
             self, 
+            model       : str = 'rutherford',
             sigma_m_0   : float = 10.0,
             w           : float = float("inf"),
             smfp_order  : int = 2,
@@ -48,6 +47,7 @@ class ScatterParams:
             b           : float = 1.3847,
             c           : float = 0.75
     ):
+        self._model = None
         self._sigma_m_0 = None
         self._w = None
         self._smfp_order = None
@@ -58,6 +58,7 @@ class ScatterParams:
         self._b = None
         self._c = None
 
+        self.model = model
         self.sigma_m_0 = sigma_m_0
         self.w = w
         self.smfp_order = smfp_order
@@ -67,6 +68,20 @@ class ScatterParams:
         self.a = a
         self.b = b
         self.c = c
+
+    @property
+    def model(self):
+        return self._model
+
+    @model.setter
+    def model(self, value):
+        if value not in SCATTER_MODEL_IDS:
+            raise ValueError("model must be either 'rutherford' or 'moller'")
+        self._model = value
+
+    @property
+    def model_id(self):
+        return SCATTER_MODEL_IDS[self._model]
 
     @property
     def sigma_m_0(self):
