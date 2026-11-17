@@ -58,8 +58,8 @@ def rho(phi, config):
     Zt = float(config.init.Zt)
     Ft = df(Zt)
 
-    epsabs = float(config.prec.epsabs)
-    epsrel = float(config.prec.epsrel)
+    epsabs = float(config.num.epsabs)
+    epsrel = float(config.num.epsrel)
 
     result, _ = quad(integrand_for_rho, 0.0, float(phi), 
                      args=(float(phi), Zt, float(Ft)), epsabs=epsabs, epsrel=epsrel)
@@ -310,8 +310,8 @@ def menc_trunc(r, state, chatter=True):
     chatter = chatter and bool(state.config.io.chatter)
     
     r = np.asarray(r, dtype=np.float64)
-    epsabs = float(state.config.prec.epsabs)
-    epsrel = float(state.config.prec.epsrel)
+    epsabs = float(state.config.num.epsabs)
+    epsrel = float(state.config.num.epsrel)
 
     out = np.empty(r.shape, dtype=np.float64)
 
@@ -385,8 +385,8 @@ def sigr_trunc(r, state):
         One-dimensional velocity dispersion squared at r, in units of v_s^2.
     """
     r = np.asarray(r, dtype=np.float64)
-    epsabs = state.config.prec.epsabs
-    epsrel = state.config.prec.epsrel
+    epsabs = state.config.num.epsabs
+    epsrel = state.config.num.epsrel
     out = np.empty(r.shape, dtype=np.float64)
 
     integrand = generate_sigr_integrand_lookup(state)

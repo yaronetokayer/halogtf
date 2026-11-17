@@ -134,7 +134,7 @@ class State:
         if self.config.io.chatter:
             print("Computing characteristic parameters for simulation...")
         init    = self.config.init # Access the InitParams object from config
-        sim     = self.config.sim # Access the SimParams object from config
+        scatter = self.config.scatter # Access the ScatterParams object from config
         cosmo   = self.config.cosmo
 
         char = CharParams() # Instantiate CharParams object
@@ -168,9 +168,9 @@ class State:
 
         v_s_cgs = char.v_s * 1.0e5
         rho_s_cgs = char.rho_s * float(const.Msun_to_gram) / float(const.Mpc_to_cm)**3
-        char.t_s = 1.0 / (float(sim.a) * float(sim.sigma_m_0) * v_s_cgs * rho_s_cgs)
-        char.sigma_m_0_char = float(sim.sigma_m_0) / char.sigma_m_s # Cross-section amplitude in characteristic units
-        char.w_char = float(sim.w) / char.v_s
+        char.t_s = 1.0 / (float(scatter.a) * float(scatter.sigma_m_0) * v_s_cgs * rho_s_cgs)
+        char.sigma_m_0_char = float(scatter.sigma_m_0) / char.sigma_m_s # Cross-section amplitude in characteristic units
+        char.w_char = float(scatter.w) / char.v_s
 
         return char
     
@@ -290,7 +290,7 @@ class State:
 
         # No accepted conduction rate is available before the first step.
         self.t_cool = np.full_like(rho, np.inf, dtype=np.float64)
-        self.t_dyn  = (self.config.sim.a * self.char.sigma_m_0_char / np.sqrt(rho)).astype(np.float64)
+        self.t_dyn  = (self.config.scatter.a * self.char.sigma_m_0_char / np.sqrt(rho)).astype(np.float64)
 
         self._update_transport_diagnostics()
 
@@ -336,7 +336,7 @@ class State:
 
 
         self.t_cool = np.full_like(self.rho, np.inf, dtype=np.float64)
-        self.t_dyn  = (self.config.sim.a * self.char.sigma_m_0_char / np.sqrt(self.rho)).astype(np.float64)
+        self.t_dyn  = (self.config.scatter.a * self.char.sigma_m_0_char / np.sqrt(self.rho)).astype(np.float64)
 
         self._update_transport_diagnostics()
 
@@ -374,7 +374,7 @@ class State:
         gam     = np.empty(n_int, dtype=np.float64)
         vol_old = np.empty(Np1 - 1, dtype=np.float64)
 
-        eps_dr = float(self.config.prec.eps_dr)
+        eps_dr = float(self.config.num.eps_dr)
 
         i = 0
         while True:
@@ -400,7 +400,7 @@ class State:
         self.rmid[:]    = 0.5 * (r_new[1:] + r_new[:-1])
         self._update_transport_diagnostics()
         calc_ltemp(self.ltemp, self.v2, self.rmid)
-        self.t_dyn[:]   = self.config.sim.a * self.char.sigma_m_0_char / np.sqrt(self.rho)
+        self.t_dyn[:]   = self.config.scatter.a * self.char.sigma_m_0_char / np.sqrt(self.rho)
         self.drfrac[0] = np.nan
         self.drfrac[1:] = np.diff(self.r[1:]) / np.sqrt(self.r[1:-1] * self.r[2:])
 
@@ -422,7 +422,7 @@ class State:
                 setattr(self, name, np.empty_like(self.rho))
         calc_transport_scales(
             self.v2, self.rho, float(self.char.sigma_m_0_char),
-            float(self.char.w_char), self.config.sim.smfp_order,
+            float(self.char.w_char), self.config.scatter.smfp_order,
             self.kn, self.mfp, self.kn_cond, self.mfp_cond,
         )
         r_c = calc_core_r(self.r, self.rmid, self.rho)
@@ -647,7 +647,7 @@ class State:
         calc_ltemp(self.ltemp, self.v2, self.rmid)
         self.drfrac[0] = np.nan
         self.drfrac[1:] = np.diff(self.r[1:]) / np.sqrt(self.r[1:-1] * self.r[2:])
-        self.t_dyn[:] = self.config.sim.a * self.char.sigma_m_0_char / np.sqrt(self.rho)
+        self.t_dyn[:] = self.config.scatter.a * self.char.sigma_m_0_char / np.sqrt(self.rho)
 
     def __repr__(self):
         # Copy the __dict__ and omit the 'config' key

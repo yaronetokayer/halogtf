@@ -1,8 +1,8 @@
 import math
 
-class SimParams:
+class ScatterParams:
     """
-    Simulation control parameters.
+    Scattering prescription parameters.
 
     Attributes
     ----------
@@ -38,15 +38,15 @@ class SimParams:
     """
     def __init__(
             self, 
-            sigma_m_0             : float = 10.0,
-            w                   : float = float("inf"),
-            smfp_order           : int = 2,
-            alph                : float = 1.0,
-            t_halt              : float = 1e3,
-            rho0_halt          : float = 1500,
-            a                   : float = 2.256758,
-            b                   : float = 1.3847,
-            c                   : float = 0.75
+            sigma_m_0   : float = 10.0,
+            w           : float = float("inf"),
+            smfp_order  : int = 2,
+            alph        : float = 1.0,
+            t_halt      : float = 1e3,
+            rho0_halt   : float = 1500,
+            a           : float = 2.256758,
+            b           : float = 1.3847,
+            c           : float = 0.75
     ):
         self._sigma_m_0 = None
         self._w = None

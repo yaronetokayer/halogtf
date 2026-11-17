@@ -41,8 +41,8 @@ def sigr_nfw(r, config):
     v2 : float or ndarray
         One-dimensional velocity dispersion squared in units of v_s^2.
     """
-    epsabs = float(config.prec.epsabs)
-    epsrel = float(config.prec.epsrel)
+    epsabs = float(config.num.epsabs)
+    epsrel = float(config.num.epsrel)
 
     r = np.asarray(r, dtype=np.float64)
     out = np.empty(r.shape, dtype=np.float64)

@@ -192,8 +192,9 @@ def import_metadata(model_dir: Union[Path, str]) -> Dict[str, Dict[str, Any]]:
           "_init": {...},
           "grid": {...},
           "io": {...},
-          "prec": {...},
-          "sim": {...},
+          "num": {...},
+          "scatter": {...},
+          "stop": {...},
         }
 
     Raises

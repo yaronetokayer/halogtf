@@ -122,14 +122,14 @@ def write_log_entry(state, start_step):
     start_step : int
         The starting value of the current simulation run
     """
-    io = state.config.io; prec = state.config.prec
+    io = state.config.io; num = state.config.num
     filepath = os.path.join(io.base_dir, io.model_dir, f"logfile.txt"); chatter = io.chatter
-    kn_threshold = prec.kn_threshold; du_boost = prec.du_boost; kn_width = prec.kn_width
+    kn_threshold = num.kn_threshold; du_boost = num.du_boost; kn_width = num.kn_width
     step = state.step_count
 
     maxvel      = np.max(np.sqrt(state.v2))
 
-    eps_du_eff = prec.eps_du * low_kn_boost(state.kn_cond_c, kn_threshold, du_boost, kn_width)
+    eps_du_eff = num.eps_du * low_kn_boost(state.kn_cond_c, kn_threshold, du_boost, kn_width)
 
     # Average each accepted step's limiter fraction, not the ratio of averages.
     # dr is the final HE correction, not total shell displacement. Iteration
@@ -148,7 +148,7 @@ def write_log_entry(state, start_step):
         ('kn_cond_c', state.kn_cond_c, 13),
         ('eps_du_eff', eps_du_eff, 13),
         ('<du lim>', state.du_limit_cum / count if count else None, 13),
-        ('<dr lim>', state.dr_max_cum / prec.eps_dr / count if count else None, 13),
+        ('<dr lim>', state.dr_max_cum / num.eps_dr / count if count else None, 13),
         ('<n_retry_du>', state.n_iter_du / count if count else None, 13),
         ('<n_iter_dr>', state.n_iter_dr / count if count else None, 13),
         ('n_split', state.n_split, 8),
@@ -222,15 +222,15 @@ def write_profile_snapshot(state, initialize=False, ic_filename=None):
     mfpltemp = state.mfp / state.ltemp
     mfp_cond_ltemp = state.mfp_cond / state.ltemp
     x = np.sqrt(state.v2) / state.char.w_char
-    moments = np.array([factors(T, state.char.w_char, state.config.sim.smfp_order)
+    moments = np.array([factors(T, state.char.w_char, state.config.scatter.smfp_order)
                         for T in state.v2])
     # Transport factors at cell temperatures; not collision cross sections.
     k_l_factor, k_s_factor = moments[:, 0], moments[:, 1]
-    sim = state.config.sim
-    a = float(sim.a); b = float(sim.b); c = float(sim.c); sigma_m_0 = float(state.char.sigma_m_0_char); alph = float(sim.alph);
-    k_lc, k_sc, k_totc = calc_kappa_cell(state.v2, state.rho, state.rmid, a, b, c, sigma_m_0, alph, float(state.char.w_char), sim.smfp_order,)
+    scatter = state.config.scatter
+    a = float(scatter.a); b = float(scatter.b); c = float(scatter.c); sigma_m_0 = float(state.char.sigma_m_0_char); alph = float(scatter.alph);
+    k_lc, k_sc, k_totc = calc_kappa_cell(state.v2, state.rho, state.rmid, a, b, c, sigma_m_0, alph, float(state.char.w_char), scatter.smfp_order,)
     krat_c = k_sc / k_lc
-    k_le, k_se, k_tote = calc_kappa_edge(state.v2, state.rho, state.r, a, b, c, sigma_m_0, alph, float(state.char.w_char), sim.smfp_order,)
+    k_le, k_se, k_tote = calc_kappa_edge(state.v2, state.rho, state.r, a, b, c, sigma_m_0, alph, float(state.char.w_char), scatter.smfp_order,)
     krat_e = k_se / k_le
 
     with open(filename, "w") as f:
@@ -352,9 +352,9 @@ def write_time_evolution(state, last=False):
 
     maxvel      = np.max(np.sqrt(state.v2))
     # Convert dispersion-crossing time from r_s/v_s to amplitude time t_s.
-    tsc_c *= state.config.sim.a * state.char.sigma_m_0_char
+    tsc_c *= state.config.scatter.a * state.char.sigma_m_0_char
     what = state.char.w_char
-    order = state.config.sim.smfp_order
+    order = state.config.scatter.smfp_order
     x_c = np.sqrt(v2_c) / what
     x_m2 = np.sqrt(v2_m2) / what
     kl_c, ks_c, _, _ = factors(v2_c, what, order)

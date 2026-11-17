@@ -19,8 +19,8 @@ def chi(config):
     beta = float(config.init.beta)
     gamma = float(config.init.gamma)
     expo = (beta - gamma) / alpha
-    epsabs = float(config.prec.epsabs)
-    epsrel = float(config.prec.epsrel)
+    epsabs = float(config.num.epsabs)
+    epsrel = float(config.num.epsrel)
 
     def chi_integrand(x):
         return x**(2.0 - gamma) / (1.0 + x**alpha)**expo
@@ -62,8 +62,8 @@ def menc_abg(r, config):
     alpha = float(config.init.alpha)
     beta  = float(config.init.beta)
     gamma = float(config.init.gamma)
-    epsabs = float(config.prec.epsabs)
-    epsrel = float(config.prec.epsrel)
+    epsabs = float(config.num.epsabs)
+    epsrel = float(config.num.epsrel)
 
     r = np.asarray(r, dtype=np.float64)
     out = np.empty(r.shape, dtype=np.float64)
@@ -95,8 +95,8 @@ def sigr_abg(r, config):
     beta  = float(config.init.beta)
     gamma = float(config.init.gamma)
 
-    epsabs = float(config.prec.epsabs)
-    epsrel = float(config.prec.epsrel)
+    epsabs = float(config.num.epsabs)
+    epsrel = float(config.num.epsrel)
 
     r = np.asarray(r, dtype=np.float64)
     out = np.empty(r.shape, dtype=np.float64)

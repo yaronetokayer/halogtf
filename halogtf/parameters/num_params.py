@@ -1,6 +1,6 @@
 import math
 
-class PrecisionParams:
+class NumericalParams:
     """
     Parameters controlling numerical precision and convergence behavior.
 

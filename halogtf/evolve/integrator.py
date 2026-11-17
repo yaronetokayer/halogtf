@@ -22,10 +22,10 @@ def run_until_stop(state, start_step, **kwargs):
 
     # Locals for speed + type hardening
     config = state.config
-    io = config.io; sim = config.sim; prec = config.prec; grid = config.grid
+    io = config.io; num = config.num; grid = config.grid; stop = config.stop
     
     t_evol = bool(io.t_evol); profiles = bool(io.profiles); chatter = bool(io.chatter)
-    t_halt = float(sim.t_halt); rho0_halt = float(sim.rho0_halt)
+    t_halt = float(stop.t_halt); rho0_halt = float(stop.rho0_halt)
     if t_evol:
         rho0_last_tevol = float(state.rho[0])
         drho_tevol = float(io.drho_tevol)
@@ -37,9 +37,9 @@ def run_until_stop(state, start_step, **kwargs):
 
     # For time-stepping
     safety = 0.99
-    kn_threshold = prec.kn_threshold
-    du_boost = prec.du_boost
-    kn_width = prec.kn_width
+    kn_threshold = num.kn_threshold
+    du_boost = num.du_boost
+    kn_width = num.kn_width
 
     # Preallocate working arrays for main loop
     # Found that preallocating for conduction tridiagonal solve does not save time
@@ -59,7 +59,7 @@ def run_until_stop(state, start_step, **kwargs):
         state.step_count += 1
         step_count = state.step_count
 
-        eps_du_eff = prec.eps_du * low_kn_boost(state.kn_cond_c, kn_threshold, du_boost, kn_width)
+        eps_du_eff = num.eps_du * low_kn_boost(state.kn_cond_c, kn_threshold, du_boost, kn_width)
 
         if step_count == 1:
             dt_prop = 1.0 # We have no maxdu yet
@@ -188,14 +188,14 @@ def integrate_time_step(state, config,                                          
     """
 
     # Store state attributes for fast access in loop and to pass into njit functions
-    prec = config.prec; sim  = config.sim; char = state.char
+    num = config.num; scatter = config.scatter; char = state.char
 
-    a = float(sim.a); b = float(sim.b); c = float(sim.c)
-    smfp_order = sim.smfp_order
+    a = float(scatter.a); b = float(scatter.b); c = float(scatter.c)
+    smfp_order = scatter.smfp_order
     sigma_m_0 = float(char.sigma_m_0_char); w_char = float(char.w_char)
-    alph = float(sim.alph)
-    eps_dr = float(prec.eps_dr)
-    max_iter_du = prec.max_iter_du; max_iter_dr = prec.max_iter_dr
+    alph = float(scatter.alph)
+    eps_dr = float(num.eps_dr)
+    max_iter_du = num.max_iter_du; max_iter_dr = num.max_iter_dr
 
     # Pointers to state arrays for easy access
     r       = np.asarray(state.r,       dtype=np.float64)

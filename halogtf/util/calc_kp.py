@@ -12,11 +12,18 @@ import numpy as np
 from numba import njit
 
 # Rows correspond to p = 3, 5, 7, 9; columns contain p0, p1, p2, p3.
-COEFF = np.array([
+COEFF_MOLLER = np.array([
     [8.0,  0.0339848, 0.37, 0.63],
     [24.0, 0.251115,  0.41, 0.71],
     [48.0, 0.682602,  0.42, 0.74],
     [80.0, 1.32953,   0.43, 0.76],
+])
+
+COEFF_YUKAWA = np.array([
+    [8.0,  0.092431,  0.3691, 0.6799],
+    [24.0, 0.682750,  0.4072, 0.7640],
+    [48.0, 0.682602,  0.4171, 0.7924],
+    [80.0, 1.32953,   0.4306, 0.8056],
 ])
 
 @njit(fastmath=True, cache=True)
@@ -65,7 +72,7 @@ def kp_log_slope(x, p):
     if p not in (3, 5, 7, 9) or x < 0 or not math.isfinite(x):
         raise ValueError('Require finite x>=0 and p in (3,5,7,9)')
 
-    p0, p1, p2, p3 = COEFF[(p - 3) // 2]
+    p0, p1, p2, p3 = COEFF_MOLLER[(p - 3) // 2]
 
     # Stable logarithm of s = x^4 + epsilon, including x = 0.
     log_x4 = 4 * math.log(x) if x > 0 else -math.inf
