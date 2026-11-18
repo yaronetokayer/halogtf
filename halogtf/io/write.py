@@ -222,7 +222,10 @@ def write_profile_snapshot(state, initialize=False, ic_filename=None):
     mfpltemp = state.mfp / state.ltemp
     mfp_cond_ltemp = state.mfp_cond / state.ltemp
     x = np.sqrt(state.v2) / state.char.w_char
-    moments = np.array([factors(T, state.char.w_char, state.config.scatter.smfp_order)
+    moments = np.array([factors(T, 
+                                state.char.w_char, 
+                                state.config.scatter.model_id, 
+                                state.config.scatter.smfp_order)
                         for T in state.v2])
     # Transport factors at cell temperatures; not collision cross sections.
     k_l_factor, k_s_factor = moments[:, 0], moments[:, 1]
@@ -354,11 +357,12 @@ def write_time_evolution(state, last=False):
     # Convert dispersion-crossing time from r_s/v_s to amplitude time t_s.
     tsc_c *= state.config.scatter.a * state.char.sigma_m_0_char
     what = state.char.w_char
+    model_id = state.config.scatter.model_id
     order = state.config.scatter.smfp_order
     x_c = np.sqrt(v2_c) / what
     x_m2 = np.sqrt(v2_m2) / what
-    kl_c, ks_c, _, _ = factors(v2_c, what, order)
-    kl_m2, ks_m2, _, _ = factors(v2_m2, what, order)
+    kl_c, ks_c, _, _ = factors(v2_c, what, model_id, order)
+    kl_m2, ks_m2, _, _ = factors(v2_m2, what, model_id, order)
 
     columns = [
         ("step", step),

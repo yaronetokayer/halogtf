@@ -130,6 +130,7 @@ class State:
         from halogtf.parameters.char_params import CharParams
         from halogtf.profiles.nfw import fNFW
         from halogtf.parameters.constants import Constants as const
+        from halogtf.util.calc_kp import factors
 
         if self.config.io.chatter:
             print("Computing characteristic parameters for simulation...")
@@ -163,14 +164,19 @@ class State:
 
         char.rho_s = char.m_s / ( 4.0 * np.pi * char.r_s**3 )
         char.v_s = float(np.sqrt(const.gee * char.m_s / char.r_s))
+        char.w_char = float(scatter.w) / char.v_s
+
+        # Thermal averages over velocity dispersion to scale time and cross section
+        v_ref_squared = (char.v_s / 3.0)**2.0
+        k_L, k_S, _, _ = factors(v_ref_squared, char.w_char, scatter.model_id, order=2)
+
         sigma_m_s = 4.0 * np.pi * char.r_s**2 / char.m_s # In Mpc^2 / Msun
-        char.sigma_m_s = sigma_m_s * float(const.Mpc_to_cm)**2 / float(const.Msun_to_gram) # In cm^2 / g
+        char.sigma_m_s = np.sqrt(k_L*k_S) * sigma_m_s * float(const.Mpc_to_cm)**2 / float(const.Msun_to_gram) # In cm^2 / g
 
         v_s_cgs = char.v_s * 1.0e5
         rho_s_cgs = char.rho_s * float(const.Msun_to_gram) / float(const.Mpc_to_cm)**3
-        char.t_s = 1.0 / (float(scatter.a) * float(scatter.sigma_m_0) * v_s_cgs * rho_s_cgs)
+        char.t_s = np.sqrt(k_L / k_S) / (float(scatter.a) * float(scatter.sigma_m_0) * v_s_cgs * rho_s_cgs)
         char.sigma_m_0_char = float(scatter.sigma_m_0) / char.sigma_m_s # Cross-section amplitude in characteristic units
-        char.w_char = float(scatter.w) / char.v_s
 
         return char
     

@@ -32,7 +32,7 @@ class ScatterParams:
         conductivity coefficient; the raw second-order 45/44 enhancement
         is not additionally applied. Must be positive.
     c : float
-        Model parameter 'c'. Must be positive.
+        Model parameter 'c'. Sets normalization of LMFP conduction scaling. Must be positive.
     """
     def __init__(
             self, 
@@ -40,12 +40,12 @@ class ScatterParams:
             sigma_m_0   : float = 10.0,
             w           : float = float("inf"),
             smfp_order  : int = 2,
-            alph        : float = 1.0,
+            alph        : float = 0.57,
             t_halt      : float = 1e3,
             rho0_halt   : float = 1500,
             a           : float = 2.256758,
             b           : float = 1.3847,
-            c           : float = 0.75
+            c           : float = 0.86
     ):
         self._model = None
         self._sigma_m_0 = None
