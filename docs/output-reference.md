@@ -205,6 +205,12 @@ the average change to the currently printed tolerance. These columns diagnose
 solver behavior, not physical observables. Log column widths are configurable
 in `write_log_entry()`; names and values are never truncated.
 
+To change the layout, edit the `columns` list in `halogtf/io/write.py`:
+each entry is `(header, value, minimum_width)`, for example
+`('time', state.t, 13)`. The third value sets the minimum width, which expands
+when required by the header or value; floating-point values retain six decimal
+places in scientific notation. This affects both file and console output.
+
 ## Other files and reading data
 
 `snapshot_conversion.txt` has three columns: `index` (snapshot suffix),

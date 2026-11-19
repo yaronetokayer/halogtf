@@ -247,6 +247,19 @@ gtf.make_movie(state)
 gtf.make_movie(2, base_dir='./', profiles=['v2', 'p'], grid=True)
 ```
 
+The default movie profiles are `['rho', 'v2']`, with a `rho0` inset in the
+first panel. Set `parallel=False` for serial rendering; `make_movie_deluxe()`
+is an alias for `make_movie()`.
+
+```python
+state.make_movie(profiles=['rho', 'v2'], insets=False, parallel=False)
+state.make_movie(profiles=['rho', 'v2'], insets=['rho0', None])
+```
+
+`insets=False` disables all insets, `insets=None` retains the default, and a
+list selects an inset (or no inset) for each panel. Without insets or radius
+annotations, a movie needs only the profile files and `snapshot_conversion.txt`.
+
 The plotting functions also exist as methods to the `State` object:
 
 ```python
@@ -329,33 +342,40 @@ halogtf/
 
 MIT License. See [LICENSE](./LICENSE) for details.
 
+---
 
-### Movie options and logfile widths
+## References
 
-`make_movie()` now uses the deluxe renderer; `make_movie_deluxe()` remains
-an alias. The default profiles are `['rho', 'v2']`, with an `rho0` inset
-in the first panel. Set `parallel=False` for serial rendering.
+Listed in chronological order by publication year.
 
-```python
-state.make_movie(profiles=['rho', 'v2'], insets=False, parallel=False)
-state.make_movie(profiles=['rho', 'v2'], insets=['rho0', None])
-```
+1. **Lynden-Bell, D. & Eggleton, P. P. (1980).** *On the consequences of the gravothermal catastrophe.* MNRAS, **191**, 483–498. [DOI: 10.1093/mnras/191.3.483](https://doi.org/10.1093/mnras/191.3.483).
 
-`insets=False` disables every inset; `insets=None` preserves the default,
-matching pygtf2. Lists allow individual panels to omit insets. A movie with
-no insets or radius annotations needs only profile files
-and `snapshot_conversion.txt`, not `time_evolution.txt`.
+   Develops the conducting-gas description of gravothermal collapse in star clusters that underlies the fluid approach used by HaloGTF.
 
-Logfile widths are set directly in the `columns` list inside
-`halogtf/io/write.py` → `write_log_entry()`. Each entry contains
-`(header, value, minimum_width)`, for example:
+2. **Balberg, S., Shapiro, S. L. & Inagaki, S. (2002).** *Self-Interacting Dark Matter Halos and the Gravothermal Catastrophe.* ApJ, **568**, 475–487. [DOI: 10.1086/339038](https://doi.org/10.1086/339038).
 
-```python
-('step', step, 10),
-('time', state.t, 13),
-('n', state.n, 6),
-```
+   Adapts the gravothermal fluid model to SIDM halos, including evolution between long- and short-mean-free-path regimes, providing the foundation for the code's conduction model.
 
-Edit the third value to adjust a column. Headers and values expand as needed
-and are never truncated; floating-point precision remains six decimal
-places in scientific notation. This controls both the file and console output.
+3. **Koda, J. & Shapiro, P. R. (2011).** *Gravothermal collapse of isolated self-interacting dark matter haloes: N-body simulation versus the fluid model.* MNRAS, **415**, 1125–1137. [DOI: 10.1111/j.1365-2966.2011.18684.x](https://doi.org/10.1111/j.1365-2966.2011.18684.x).
+
+   Compares conducting-fluid calculations with Monte Carlo N-body simulations, establishing benchmarks for calibrating the fluid conductivity and testing halo evolution.
+
+4. **Nishikawa, H., Boddy, K. K. & Kaplinghat, M. (2020).** *Accelerated core collapse in tidally stripped self-interacting dark matter halos.* Physical Review D, **101**, 063009. [DOI: 10.1103/PhysRevD.101.063009](https://doi.org/10.1103/PhysRevD.101.063009).
+
+   Uses the gravothermal fluid model to show how outer-halo stripping accelerates collapse, motivating tests of the initial profile and truncation dependence in HaloGTF.
+
+5. **Feng, W.-X., Yu, H.-B. & Zhong, Y.-M. (2021).** *Seeding Supermassive Black Holes with Self-interacting Dark Matter: A Unified Scenario with Baryons.* ApJ Letters, **914**, L26. [DOI: 10.3847/2041-8213/ac04b0](https://doi.org/10.3847/2041-8213/ac04b0).
+
+   Applies conducting-fluid calculations to baryon-accelerated SIDM collapse and black-hole seeding, providing context for interpreting HaloGTF's collapse histories beyond the present dark-matter-only model.
+
+6. **Outmezguine, N. J., Boddy, K. K., Gad-Nasr, S., Kaplinghat, M. & Sagunski, L. (2023).** *Universal gravothermal evolution of isolated self-interacting dark matter halos for velocity-dependent cross-sections.* MNRAS, **523**, 4786–4800. [DOI: 10.1093/mnras/stad1705](https://doi.org/10.1093/mnras/stad1705).
+
+   Develops velocity-dependent transport averages and approximate evolutionary scaling relations that inform the code's thermal moments and reference-unit rescaling.
+
+7. **Gad-Nasr, S., Boddy, K. K., Kaplinghat, M., Outmezguine, N. J. & Sagunski, L. (2024).** *On the late-time evolution of velocity-dependent self-interacting dark matter halos.* JCAP, **2024**(05), 131. [DOI: 10.1088/1475-7516/2024/05/131](https://doi.org/10.1088/1475-7516/2024/05/131).
+
+   Studies deep core collapse with velocity-dependent scattering and supplies the thermal-moment fitting prescription and second-order SMFP treatment used by the code, with HaloGTF's normalization described above.
+
+8. **van den Bosch, F. C. & Tokayer, Y. M. (2026).** *Not so Fast: Revised Calibration of SIDM Core Collapse.* MNRAS, stag2015. [DOI: 10.1093/mnras/stag2015](https://doi.org/10.1093/mnras/stag2015).
+
+   Calibrates gravothermal fluid evolution against SphDSMC simulations and motivates the gentler LMFP–SMFP interpolation and constant-cross-section baseline implemented in HaloGTF.
