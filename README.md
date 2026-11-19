@@ -362,20 +362,16 @@ Listed in chronological order by publication year.
 
 4. **Nishikawa, H., Boddy, K. K. & Kaplinghat, M. (2020).** *Accelerated core collapse in tidally stripped self-interacting dark matter halos.* Physical Review D, **101**, 063009. [DOI: 10.1103/PhysRevD.101.063009](https://doi.org/10.1103/PhysRevD.101.063009).
 
-   Uses the gravothermal fluid model to show how outer-halo stripping accelerates collapse, motivating tests of the initial profile and truncation dependence in HaloGTF.
+   Uses the gravothermal fluid model to show how outer-halo stripping accelerates collapse.
 
-5. **Feng, W.-X., Yu, H.-B. & Zhong, Y.-M. (2021).** *Seeding Supermassive Black Holes with Self-interacting Dark Matter: A Unified Scenario with Baryons.* ApJ Letters, **914**, L26. [DOI: 10.3847/2041-8213/ac04b0](https://doi.org/10.3847/2041-8213/ac04b0).
-
-   Applies conducting-fluid calculations to baryon-accelerated SIDM collapse and black-hole seeding, providing context for interpreting HaloGTF's collapse histories beyond the present dark-matter-only model.
-
-6. **Outmezguine, N. J., Boddy, K. K., Gad-Nasr, S., Kaplinghat, M. & Sagunski, L. (2023).** *Universal gravothermal evolution of isolated self-interacting dark matter halos for velocity-dependent cross-sections.* MNRAS, **523**, 4786–4800. [DOI: 10.1093/mnras/stad1705](https://doi.org/10.1093/mnras/stad1705).
+5. **Outmezguine, N. J., Boddy, K. K., Gad-Nasr, S., Kaplinghat, M. & Sagunski, L. (2023).** *Universal gravothermal evolution of isolated self-interacting dark matter halos for velocity-dependent cross-sections.* MNRAS, **523**, 4786–4800. [DOI: 10.1093/mnras/stad1705](https://doi.org/10.1093/mnras/stad1705).
 
    Develops velocity-dependent transport averages and approximate evolutionary scaling relations that inform the code's thermal moments and reference-unit rescaling.
 
-7. **Gad-Nasr, S., Boddy, K. K., Kaplinghat, M., Outmezguine, N. J. & Sagunski, L. (2024).** *On the late-time evolution of velocity-dependent self-interacting dark matter halos.* JCAP, **2024**(05), 131. [DOI: 10.1088/1475-7516/2024/05/131](https://doi.org/10.1088/1475-7516/2024/05/131).
+6. **Gad-Nasr, S., Boddy, K. K., Kaplinghat, M., Outmezguine, N. J. & Sagunski, L. (2024).** *On the late-time evolution of velocity-dependent self-interacting dark matter halos.* JCAP, **2024**(05), 131. [DOI: 10.1088/1475-7516/2024/05/131](https://doi.org/10.1088/1475-7516/2024/05/131).
 
    Studies deep core collapse with velocity-dependent scattering and supplies the thermal-moment fitting prescription and second-order SMFP treatment used by the code, with HaloGTF's normalization described above.
 
-8. **van den Bosch, F. C. & Tokayer, Y. M. (2026).** *Not so Fast: Revised Calibration of SIDM Core Collapse.* MNRAS, stag2015. [DOI: 10.1093/mnras/stag2015](https://doi.org/10.1093/mnras/stag2015).
+7. **van den Bosch, F. C. & Tokayer, Y. M. (2026).** *Not so Fast: Revised Calibration of SIDM Core Collapse.* MNRAS, stag2015. [DOI: 10.1093/mnras/stag2015](https://doi.org/10.1093/mnras/stag2015).
 
    Calibrates gravothermal fluid evolution against SphDSMC simulations and motivates the gentler LMFP–SMFP interpolation and constant-cross-section baseline implemented in HaloGTF.
