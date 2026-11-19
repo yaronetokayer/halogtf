@@ -6,11 +6,11 @@ import numpy as np
 import math
 from numba import njit, void, float64, types
 from halogtf.util.interpolate import interp_linear_to_interfaces, interp_pl_to_r
-from halogtf.util.calc_kp import factors, conductivity
+from halogtf.util.calc_kp import factors, conductivity, relative_factors
 from halogtf.util.calc_core import calc_core_r, calc_mean_within_r
 
-@njit(void(float64[:], float64[:], float64, float64, types.int64, float64[:], float64[:], float64[:], float64[:]), cache=True)
-def calc_transport_scales(v2, rho, sigma_m_0, w_char, smfp_order, kn, mfp, kn_cond, mfp_cond):
+@njit(void(float64[:], float64[:], float64, float64, types.int64, types.int64, float64[:], float64[:], float64[:], float64[:]), cache=True)
+def calc_transport_scales(v2, rho, sigma_m_0, w_char, smfp_order, model_id, kn, mfp, kn_cond, mfp_cond):
     """
     Fill amplitude-reference and conductivity-effective cell diagnostics.
 
@@ -20,10 +20,13 @@ def calc_transport_scales(v2, rho, sigma_m_0, w_char, smfp_order, kn, mfp, kn_co
         Positive dimensionless dispersion squared and density.
     sigma_m_0 : float
         Cross-section amplitude per mass in characteristic units.
+        This should be the hard sphere amplitude, not the velocity-dependent amplitude.
     w_char : float
         Velocity scale w / v_s; positive infinity selects constant scattering.
     smfp_order : int
         SMFP moment approximation, 1 or normalized 2.
+    model_id : int
+        Scattering model identifier. Use MODEL_RUTHERFORD or MODEL_MOLLER.
     kn, mfp : ndarray, shape (N,)
         Output reference diagnostics using only the fixed amplitude:
         kn = 1 / (sigma_m_0 * sqrt(rho * v2)),
@@ -44,7 +47,7 @@ def calc_transport_scales(v2, rho, sigma_m_0, w_char, smfp_order, kn, mfp, kn_co
     for i in range(v2.size):
         kn[i] = 1.0 / (sigma_m_0 * math.sqrt(rho[i] * v2[i]))
         mfp[i] = 1.0 / (sigma_m_0 * rho[i])
-        kl, ks, _, _ = factors(v2[i], w_char, smfp_order)
+        kl, ks, _, _ = factors(v2[i], w_char, model_id, smfp_order)
         # Separate square roots avoid prematurely underflowing KL * KS.
         factor = math.sqrt(kl) * math.sqrt(ks)
         kn_cond[i] = kn[i] / factor
@@ -95,8 +98,8 @@ def calc_ltemp(ltemp, v2, rmid):
     gradient = abs(v2[n - 1] - v2[n - 2])
     ltemp[n - 1] = v2[n - 1] * abs(rmid[n - 1] - rmid[n - 2]) / gradient if gradient > 0 else np.inf
 
-@njit(types.Tuple((float64[::1], float64[::1], float64[::1],))(float64[::1], float64[::1], float64[::1], float64, float64, float64, float64, float64, float64, types.int64), cache=True)
-def calc_kappa_cell(v2, rho, rmid, a_param, b_param, c_param, sigma_m, alph, w_char, smfp_order,):
+@njit(types.Tuple((float64[::1], float64[::1], float64[::1],))(float64[::1], float64[::1], float64[::1], float64, float64, float64, float64, float64, float64, types.int64, float64, float64, types.int64), cache=True)
+def calc_kappa_cell(v2, rho, rmid, a_param, b_param, c_param, sigma_m, alph, w_char, model_id, k_l_ref, k_s_ref, smfp_order,):
     """
     Compute the cell-centered LMFP, SMFP, and interpolated conductivities, shape (N,)
 
@@ -129,6 +132,10 @@ def calc_kappa_cell(v2, rho, rmid, a_param, b_param, c_param, sigma_m, alph, w_c
         Positive interpolation parameter.
     w_char : float
         Velocity scale w / v_s. Positive infinity selects constant scattering.
+    model_id : int
+        Scattering model identifier. Use MODEL_RUTHERFORD or MODEL_MOLLER.
+    k_l_ref, k_s_ref : float
+        Reference values for dimensionless thermal averages of velocity cross section.
     smfp_order : int
         SMFP moment approximation, 1 or 2; order 2 retains the normalized
         convention of calc_kp.factors.
@@ -161,7 +168,7 @@ def calc_kappa_cell(v2, rho, rmid, a_param, b_param, c_param, sigma_m, alph, w_c
         # common geometric/velocity factor: v * r^2
         vr2 = math.sqrt(v2_i) * r_i * r_i
 
-        kl, ks, _, _ = factors(v2_i, w_char, smfp_order)
+        kl, ks, _, _ = relative_factors(v2_i, w_char, model_id, smfp_order, k_l_ref, k_s_ref)
         k_l_i = lmfp_fac * vr2 * rho[i] * v2_i * kl
         k_s_i = smfp_fac * vr2 / ks
 
@@ -169,15 +176,15 @@ def calc_kappa_cell(v2, rho, rmid, a_param, b_param, c_param, sigma_m, alph, w_c
         k_s[i] = k_s_i
 
         coeff, _ = conductivity(
-            v2_i, rho[i], sigma_m, w_char, alph,
-            a_param, b_param, c_param, smfp_order,
+            v2_i, rho[i], sigma_m, w_char, model_id, k_l_ref, k_s_ref,
+            alph, a_param, b_param, c_param, smfp_order,
         )
         k[i] = 1.5 * r_i * r_i * coeff
 
     return k_l, k_s, k
 
-@njit(types.Tuple((float64[::1], float64[::1], float64[::1],))(float64[::1], float64[::1], float64[::1], float64, float64, float64, float64, float64, float64, types.int64), cache=True)
-def calc_kappa_edge(v2, rho, r, a_param, b_param, c_param, sigma_m, alph, w_char, smfp_order,):
+@njit(types.Tuple((float64[::1], float64[::1], float64[::1],))(float64[::1], float64[::1], float64[::1], float64, float64, float64, float64, float64, float64, types.int64, float64, float64, types.int64), cache=True)
+def calc_kappa_edge(v2, rho, r, a_param, b_param, c_param, sigma_m, alph, w_char, model_id, k_l_ref, k_s_ref, smfp_order,):
     """
     Compute LMFP, SMFP, and interpolated conductivities at outer cell edges.
 
@@ -251,7 +258,7 @@ def calc_kappa_edge(v2, rho, r, a_param, b_param, c_param, sigma_m, alph, w_char
         # common geometric/velocity factor: v * r^2
         vr2 = math.sqrt(v2_i) * r_i * r_i
 
-        kl, ks, _, _ = factors(v2_i, w_char, smfp_order)
+        kl, ks, _, _ = relative_factors(v2_i, w_char, model_id, smfp_order, k_l_ref, k_s_ref)
         k_l_i = lmfp_fac * vr2 * rho_int[i] * v2_i * kl
         k_s_i = smfp_fac * vr2 / ks
 
@@ -259,8 +266,8 @@ def calc_kappa_edge(v2, rho, r, a_param, b_param, c_param, sigma_m, alph, w_char
         k_s[i] = k_s_i
 
         coeff, _ = conductivity(
-            v2_i, rho_int[i], sigma_m, w_char, alph,
-            a_param, b_param, c_param, smfp_order,
+            v2_i, rho_int[i], sigma_m, w_char, model_id, k_l_ref, k_s_ref, 
+            alph, a_param, b_param, c_param, smfp_order,
         )
         k[i] = 1.5 * r_i * r_i * coeff
 

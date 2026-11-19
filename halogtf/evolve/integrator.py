@@ -193,6 +193,7 @@ def integrate_time_step(state, config,                                          
     a = float(scatter.a); b = float(scatter.b); c = float(scatter.c)
     smfp_order = scatter.smfp_order
     sigma_m_0 = float(char.sigma_m_0_char); w_char = float(char.w_char)
+    k_l_ref = float(char.k_l_ref); k_s_ref = float(char.k_s_ref)
     alph = float(scatter.alph); model_id = scatter.model_id
     eps_dr = float(num.eps_dr)
     max_iter_du = num.max_iter_du; max_iter_dr = num.max_iter_dr
@@ -211,7 +212,7 @@ def integrate_time_step(state, config,                                          
 
     ### Step 1: Energy transport ###
     # implicit: work_n1 used to store dv2, x_alloc used for rho_int
-    du_max, dt_prop, iter_du = conduct_implicit_tcool_dulim(v2, rho, r, m, work_n1, t_cool, x_alloc, dt_prop, a, b, c, sigma_m_0, w_char, smfp_order, alph, model_id, eps_du_eff, max_iter_du)
+    du_max, dt_prop, iter_du = conduct_implicit_tcool_dulim(v2, rho, r, m, work_n1, t_cool, x_alloc, dt_prop, a, b, c, sigma_m_0, w_char, smfp_order, alph, model_id, eps_du_eff, max_iter_du, k_l_ref, k_s_ref)
     
     if iter_du == -1:
         raise RuntimeError(f"Step {step_count}: Max iterations exceeded in implicit conduction step.")
@@ -266,7 +267,7 @@ def integrate_time_step(state, config,                                          
     np.sqrt(work_n1[1:], out=work_n1[1:])
     np.divide(state.drfrac[1:], work_n1[1:], out=state.drfrac[1:])
 
-    # ltemp and mfp
+    # ltemp
     calc_ltemp(state.ltemp, state.v2, state.rmid)
 
     # Diagnostics
@@ -286,7 +287,7 @@ def integrate_time_step(state, config,                                          
     np.sqrt(rho, out=state.t_dyn)
     np.reciprocal(state.t_dyn, out=state.t_dyn)
     # Convert r_s/v_s dynamical time to the amplitude-based time unit t_s.
-    state.t_dyn *= a * sigma_m_0
+    state.t_dyn *= char.dynamical_time_factor
     
     # init = config.init; cored = (init.profile == 'abg') and (float(init.gamma) < 1.0)
 

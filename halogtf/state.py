@@ -127,6 +127,7 @@ class State:
         """
         Compute and set characteristic physical quantities based on InitParams.
         """
+        import math
         from halogtf.parameters.char_params import CharParams
         from halogtf.profiles.nfw import fNFW
         from halogtf.parameters.constants import Constants as const
@@ -167,17 +168,33 @@ class State:
         char.w_char = float(scatter.w) / char.v_s
 
         # Thermal averages over velocity dispersion to scale time and cross section
-        v_ref_squared = (char.v_s / 3.0)**2.0
-        k_L, k_S, _, _ = factors(v_ref_squared, char.w_char, scatter.model_id, order=2)
+        char.v_ref_over_vs = (1 / 3.0)
+        char.k_l_ref, char.k_s_ref, _, _ = factors(
+            char.v_ref_over_vs**2,
+            char.w_char,
+            scatter.model_id,
+            scatter.smfp_order,
+        )
+        factor = math.sqrt(char.k_l_ref * char.k_s_ref)
 
-        sigma_m_s = 4.0 * np.pi * char.r_s**2 / char.m_s # In Mpc^2 / Msun
-        char.sigma_m_s = np.sqrt(k_L*k_S) * sigma_m_s * float(const.Mpc_to_cm)**2 / float(const.Msun_to_gram) # In cm^2 / g
+        # Original amplitude-based cross-section unit [cm^2/g].
+        sigma_m_s_base = 4.0 * np.pi * char.r_s**2 / char.m_s
+        sigma_m_s_base *= (float(const.Mpc_to_cm)**2 / float(const.Msun_to_gram)) # In cm^2 / g
+        char.sigma_m_s_hardsphere = sigma_m_s_base
+
+        # Velocity-dependent unit
+        char.sigma_m_s = sigma_m_s_base / factor
+        char.sigma_m_0_char = float(scatter.sigma_m_0) / char.sigma_m_s # Cross-section amplitude in characteristic units
+        char.sigma_m_0_char_hardsphere = float(scatter.sigma_m_0) / char.sigma_m_s_hardsphere
 
         v_s_cgs = char.v_s * 1.0e5
         rho_s_cgs = char.rho_s * float(const.Msun_to_gram) / float(const.Mpc_to_cm)**3
-        char.t_s = np.sqrt(k_L / k_S) / (float(scatter.a) * float(scatter.sigma_m_0) * v_s_cgs * rho_s_cgs)
-        char.sigma_m_0_char = float(scatter.sigma_m_0) / char.sigma_m_s # Cross-section amplitude in characteristic units
+        t_s_base = 1.0 / ( float(scatter.a) * float(scatter.sigma_m_0) * v_s_cgs * rho_s_cgs )
+        char.t_s = t_s_base / char.k_l_ref
 
+        # Converts a time measured in r_s/v_s into the new simulation units.
+        char.dynamical_time_factor = float(scatter.a) * char.sigma_m_0_char_hardsphere * char.k_l_ref
+        
         return char
     
     def _setup_grid(self):
@@ -296,7 +313,7 @@ class State:
 
         # No accepted conduction rate is available before the first step.
         self.t_cool = np.full_like(rho, np.inf, dtype=np.float64)
-        self.t_dyn  = (self.config.scatter.a * self.char.sigma_m_0_char / np.sqrt(rho)).astype(np.float64)
+        self.t_dyn  = (self.char.dynamical_time_factor / np.sqrt(rho)).astype(np.float64)
 
         self._update_transport_diagnostics()
 
@@ -342,7 +359,7 @@ class State:
 
 
         self.t_cool = np.full_like(self.rho, np.inf, dtype=np.float64)
-        self.t_dyn  = (self.config.scatter.a * self.char.sigma_m_0_char / np.sqrt(self.rho)).astype(np.float64)
+        self.t_dyn  = (self.char.dynamical_time_factor / np.sqrt(self.rho)).astype(np.float64)
 
         self._update_transport_diagnostics()
 
@@ -406,7 +423,7 @@ class State:
         self.rmid[:]    = 0.5 * (r_new[1:] + r_new[:-1])
         self._update_transport_diagnostics()
         calc_ltemp(self.ltemp, self.v2, self.rmid)
-        self.t_dyn[:]   = self.config.scatter.a * self.char.sigma_m_0_char / np.sqrt(self.rho)
+        self.t_dyn[:]   = self.char.dynamical_time_factor / np.sqrt(self.rho)
         self.drfrac[0] = np.nan
         self.drfrac[1:] = np.diff(self.r[1:]) / np.sqrt(self.r[1:-1] * self.r[2:])
 
@@ -427,8 +444,8 @@ class State:
             if not hasattr(self, name) or getattr(self, name).size != self.rho.size:
                 setattr(self, name, np.empty_like(self.rho))
         calc_transport_scales(
-            self.v2, self.rho, float(self.char.sigma_m_0_char),
-            float(self.char.w_char), self.config.scatter.smfp_order,
+            self.v2, self.rho, float(self.char.sigma_m_0_char_hardsphere),
+            float(self.char.w_char), self.config.scatter.smfp_order, self.config.scatter.model_id,
             self.kn, self.mfp, self.kn_cond, self.mfp_cond,
         )
         r_c = calc_core_r(self.r, self.rmid, self.rho)
@@ -653,7 +670,7 @@ class State:
         calc_ltemp(self.ltemp, self.v2, self.rmid)
         self.drfrac[0] = np.nan
         self.drfrac[1:] = np.diff(self.r[1:]) / np.sqrt(self.r[1:-1] * self.r[2:])
-        self.t_dyn[:] = self.config.scatter.a * self.char.sigma_m_0_char / np.sqrt(self.rho)
+        self.t_dyn[:] = self.char.dynamical_time_factor / np.sqrt(self.rho)
 
     def __repr__(self):
         # Copy the __dict__ and omit the 'config' key

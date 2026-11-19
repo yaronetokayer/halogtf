@@ -21,13 +21,13 @@ COEFF_MOLLER = np.array([
 ])
 
 COEFF_RUTHERFORD = np.array([
-    [8.0,  0.092431,  0.3691, 0.6799],
-    [24.0, 0.682750,  0.4072, 0.7640],
-    [48.0, 0.682602,  0.4171, 0.7924],
-    [80.0, 1.32953,   0.4306, 0.8056],
+    [16.0,  0.092431,  0.3691, 0.6799],
+    [48.0,  0.682750,  0.4072, 0.7640],
+    [96.0,  1.851743,  0.4171, 0.7924],
+    [160.0, 3.594490,  0.4306, 0.8056],
 ])
 
-@njit(fastmath=True, cache=True)
+@njit(fastmath={'reassoc', 'nsz', 'contract', 'arcp'}, cache=True)
 def softplus(z):
     """
     Compute ln(1 + exp(z)) without overflow for finite z.
@@ -44,10 +44,13 @@ def softplus(z):
     """
     return max(z, 0.0) + math.log1p(math.exp(-abs(z)))
 
-@njit(fastmath=True, cache=True)
-def kp_log_slope(x, p, model_id):
+@njit(fastmath={'reassoc', 'nsz', 'contract', 'arcp'}, cache=True)
+def _kp_log_slope_raw(x, p, model_id):
     """
     Compute the logarithm of Kp and its logarithmic velocity slope.
+    These fits approach values slightly different from unity as w increases.
+    To enforce hard sphere limit, we normalize each fitted moment by its 
+    zero-velocity value in wrapper function below.
 
     Parameters
     ----------
@@ -101,7 +104,17 @@ def kp_log_slope(x, p, model_id):
 
     return log_kp, slope
 
-@njit(fastmath=True, cache=True)
+@njit(fastmath={'reassoc', 'nsz', 'contract', 'arcp'}, cache=True)
+def kp_log_slope(x, p, model_id):
+    """
+    Wrapper function for _kp_log_slope_raw to enforce hard-sphere limit.
+    Since we use epsilon = 1e-12, this has a very small effect.
+    """
+    log_k, slope = _kp_log_slope_raw(x, p, model_id)
+    log_k0, _ = _kp_log_slope_raw(0.0, p, model_id)
+    return log_k - log_k0, slope
+
+@njit(fastmath={'reassoc', 'nsz', 'contract', 'arcp'}, cache=True)
 def factors(T, what, model_id, order=2):
     """
     Compute LMFP and SMFP transport factors and their temperature slopes.
@@ -177,8 +190,16 @@ def factors(T, what, model_id, order=2):
 
     return k5, k_smfp, slope_k5, slope_smfp
 
-@njit(fastmath=True, cache=True)
-def conductivity(T, rho, sigmahat, what, alph, a, b, c, order=2):
+@njit(fastmath={'reassoc', 'nsz', 'contract', 'arcp'}, cache=True)
+def relative_factors(T, what, model_id, order, k_l_ref, k_s_ref):
+    """
+    Ratio of Kp factors to the fixed reference value in the model units
+    """
+    kl, ks, slope_l, slope_s = factors(T, what, model_id, order)
+    return kl / k_l_ref, ks / k_s_ref, slope_l, slope_s
+
+@njit(fastmath={'reassoc', 'nsz', 'contract', 'arcp'}, cache=True)
+def conductivity(T, rho, sigmahat, what, model_id, k_l_ref, k_s_ref, alph, a, b, c, order=2):
     """
     Compute the temperature-flux coefficient and its logarithmic slope.
 
@@ -199,6 +220,10 @@ def conductivity(T, rho, sigmahat, what, alph, a, b, c, order=2):
     what : float
         Positive velocity scale in characteristic units (char.w_char).
         Positive infinity selects constant-cross-section factors.
+    model_id : int
+        Scattering model identifier. Use MODEL_RUTHERFORD or MODEL_MOLLER.
+    k_l_ref, k_s_ref : float
+        Reference values for dimensionless thermal averages of velocity cross section.
     alph : float
         Positive interpolation parameter between LMFP and SMFP transport.
     a : float
@@ -220,7 +245,7 @@ def conductivity(T, rho, sigmahat, what, alph, a, b, c, order=2):
         dln(k) / dln(T), holding density, amplitude, velocity scale, and
         transport parameters fixed. Includes derivatives of both factors.
     """
-    k_lmfp, k_smfp, slope_lmfp, slope_smfp = factors(T, what, order)
+    k_lmfp, k_smfp, slope_lmfp, slope_smfp = relative_factors(T, what, model_id, order, k_l_ref, k_s_ref)
     log_smfp = math.log(a / b) + 2 * math.log(sigmahat) + math.log(k_smfp)
     log_lmfp = -math.log(c * rho * T * k_lmfp)
 

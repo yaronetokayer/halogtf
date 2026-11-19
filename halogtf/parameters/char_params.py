@@ -34,12 +34,17 @@ class CharParams:
         self.chi = None
         self.m_s = None
         self.sigma_m_s = None
+        self.sigma_m_s_hardsphere = None
         self.t_s = None
         self.v_s = None
         self.rho_s = None
         self.sigma_m_0_char = None
+        self.sigma_m_0_char_hardsphere = None
         self.w_char = None
         self.mtot_m200 = None
+        self.k_l_ref = None
+        self.k_s_ref = None
+        self.dynamical_time_factor = None
 
     def __repr__(self):
         attrs = ", ".join(
