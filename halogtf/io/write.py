@@ -355,7 +355,7 @@ def write_time_evolution(state, last=False):
 
     maxvel      = np.max(np.sqrt(state.v2))
     # Convert dispersion-crossing time from r_s/v_s to amplitude time t_s.
-    tsc_c *= state.config.scatter.a * state.char.sigma_m_0_char
+    tsc_c *= state.char.dynamical_time_factor
     what = state.char.w_char
     model_id = state.config.scatter.model_id
     order = state.config.scatter.smfp_order

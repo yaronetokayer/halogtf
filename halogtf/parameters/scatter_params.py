@@ -41,8 +41,6 @@ class ScatterParams:
             w           : float = float("inf"),
             smfp_order  : int = 2,
             alph        : float = 0.57,
-            t_halt      : float = 1e3,
-            rho0_halt   : float = 1500,
             a           : float = 2.256758,
             b           : float = 1.3847,
             c           : float = 0.86

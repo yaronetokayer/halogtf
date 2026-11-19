@@ -15,7 +15,7 @@ class StopParams:
     def __init__(
             self, 
             t_halt      : float = 1e3,
-            rho0_halt   : float = 1500,
+            rho0_halt   : float = 1e5,
     ):
         self._t_halt = None
         self._rho0_halt = None

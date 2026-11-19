@@ -247,6 +247,7 @@ def conduct_implicit_Theta_nolim(v2, rho, r, m, dv2, Th, rho_int, dt, a_param, b
     solve_tridiagonal_thomas(a, b, c, d, dv2, gam)
 
     tiny = _TINY64
+    time_factor = a_param * sigma_m_0 * math.sqrt(k_l_ref / k_s_ref)
     rR = r[0]
     for i in range(N):
         dv2i    = dv2[i]
@@ -263,7 +264,7 @@ def conduct_implicit_Theta_nolim(v2, rho, r, m, dv2, Th, rho_int, dt, a_param, b
             du_max = rat
 
         if absdv2i > tiny and dr > tiny and v2i > tiny:
-            Th[i] = v2i * math.sqrt(v2i) * dt / (a_param * sigma_m_0 * dr * absdv2i)
+            Th[i] = v2i * math.sqrt(v2i) * dt / (time_factor * dr * absdv2i)
         else:
             Th[i] = np.inf
 
@@ -472,7 +473,8 @@ def conduct_implicit_Theta_dulim(v2, rho, r, m, dv2, Th, rho_int, dt, a_param, b
 
             if rat > du_max:
                 du_max = rat
-        
+
+        time_factor = a_param * sigma_m_0 * math.sqrt(k_l_ref / k_s_ref)
         if du_max <= eps_du:
             rR = r[0]
             for i in range(N):
@@ -485,7 +487,7 @@ def conduct_implicit_Theta_dulim(v2, rho, r, m, dv2, Th, rho_int, dt, a_param, b
                 absdv2i = abs(dv2i)
 
                 if absdv2i > tiny and dr > tiny and v2i > tiny:
-                    Th[i] = v2i * math.sqrt(v2i) * dt_trial / (a_param * sigma_m_0 * dr * absdv2i)
+                    Th[i] = v2i * math.sqrt(v2i) * dt_trial / (time_factor * dr * absdv2i)
                 else:
                     Th[i] = np.inf
 
