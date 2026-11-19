@@ -79,7 +79,7 @@ import halogtf as gtf
 
 config = gtf.Config()
 state = gtf.State.from_config(config)
-state.run(steps=100)  # Bounded demonstration; omit steps for a full run
+state.run(steps=10000)  # Bounded demonstration; omit steps for a full run
 ```
 
 To read an existing simulation without constructing a state:
@@ -96,7 +96,7 @@ We can also run for a specified duration:
 ```python
 state.run(steps=100) # Run for 100 simulation steps
 state.run(stoptime=55.0) # Run for a duration of 55.0 simulation time units
-state.run(rho_c=500.0) # Run until the central density exceeds 500.0
+state.run(rho_c=5000.0) # Run until the central density exceeds 500.0
 ```
 
 The first satisfied user or configuration stopping condition ends the run. The configured density limit is checked only after time > 50; `run(rho_c=...)` applies immediately after a step. Multiple `run()` commands can be executed in succession, and each will continue from the current state.  Call `state.reset()` to reset the state to its initial condition and reset the step counter.
