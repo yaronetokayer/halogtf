@@ -275,13 +275,6 @@ halogtf/
 
 ---
 
-## Next steps
-
-* v1.0 is complete, v2.0 in development
-* v2.0 will be able to accommodate multiple species
-
----
-
 ## License
 
 MIT License. See [LICENSE](./LICENSE) for details.
