@@ -4,7 +4,7 @@
 
 This implementation follows the formalism outlined in [Nishikawa et al. (2020)](https://journals.aps.org/prd/abstract/10.1103/PhysRevD.101.063009), with modular components for initialization, evolution, and output.
 
-The notebooks in `examples/` predate the current API. Use the examples below and the package docstrings for current parameter names.
+See [the runnable example notebook](examples/demo.ipynb) and the [output and units reference](docs/output-reference.md).
 
 Contact yarone.tokayer-at-yale.edu with any questions/comments.
 
@@ -21,8 +21,9 @@ Stores static input parameters, grouped into modules:
 * `io`: Output paths and snapshot cadence
 * `grid`: Grid resolution and domain
 * `init`: Initial profile (NFW, truncated NFW, or $\alpha$-$\beta$-$\gamma$)
-* `sim`: Physical parameters and simulation option (e.g., self-interaction cross section, calibrated parameters)
-* `prec`: Precision tolerances and iteration limits
+* `scatter`: Scattering model, cross section, velocity scale, and conduction calibration
+* `num`: Precision tolerances and iteration limits
+* `stop`: Absolute time and central-density stopping limits
 * `cosmo`: Cosmological parameters
 
 ### 2. `State`
@@ -80,7 +81,7 @@ import halogtf as gtf
 
 config = gtf.Config()
 state = gtf.State.from_config(config)
-state.run()
+state.run(steps=100)  # Bounded demonstration; omit steps for a full run
 ```
 
 To read an existing simulation without constructing a state:
@@ -112,10 +113,10 @@ config.init = ("abg", {"alpha": 3.5, "beta": 4.5})  # Custom ABG
 # Customize other configuration parameters
 config.grid.drfrac_init = 0.05                    # Initial dr/r sets the cell count
 config.io.model_no = 42
-config.io.base_dir = "/tmp/sims"                    # Default is the current working directory
-config.sim.sigma_m_0 = 1.0                         # Low-velocity amplitude [cm^2/g]
-config.sim.w = 50.0                                # Velocity scale [km/s]; default inf is constant scattering
-config.sim.smfp_order = 2                          # Normalized second order (default); 1 is also supported
+config.io.base_dir = "./sims"                    # Default is the current working directory
+config.scatter.sigma_m_0 = 1.0                         # Low-velocity amplitude [cm^2/g]
+config.scatter.w = 50.0                                # Velocity scale [km/s]; default inf is constant scattering
+config.scatter.smfp_order = 2                          # Normalized second order (default); 1 is also supported
 
 # Switch to a truncated NFW
 config.init = ("truncated_nfw", {"Zt": 0.05, "deltaP": 1e-4})
@@ -124,7 +125,76 @@ config.init = ("truncated_nfw", {"Zt": 0.05, "deltaP": 1e-4})
 config.io.chatter = False
 ```
 
-If you don’t explicitly assign `config.io.model_no`, it is automatically set to the next available model number in `config.io.base_dir` (e.g., if `Model00000`, `Model00001`, and `Model00002` directories exist, it will assign `model_no = 3`) when the model number is first accessed. You can explicitly assign a `model_no` with `config = gtf.Config(io={"model_no": 5})` or with `config.io.model_no = 5` once config is instantiated.  Note that in that case, existing outputs may be overwritten. Set `config.io.overwrite = False` to reject initialization in an existing model directory.
+If you don’t explicitly assign `config.io.model_no`, it is automatically set to the first available model number in `config.io.base_dir` (starting at zero) when the model number is first accessed. You can explicitly assign a `model_no` with `config = gtf.Config(io={"model_no": 5})` or with `config.io.model_no = 5` once config is instantiated.  Note that in that case, existing outputs may be overwritten. Set `config.io.overwrite = False` to reject initialization in an existing model directory.
+
+### Scattering, calibration, and units
+
+Set these parameters **before** constructing the state:
+
+```python
+config = gtf.Config(
+    scatter={"model": "rutherford", "sigma_m_0": 10.0, "w": 50.0,
+             "smfp_order": 2, "alph": 0.57, "c": 0.86},
+    num={"eps_du": 1e-4},
+    stop={"t_halt": 1000.0, "rho0_halt": 1e5},
+    io={"base_dir": "./sims", "overwrite": False},
+)
+```
+
+`scatter.model` accepts `"rutherford"` (screened Rutherford/Yukawa-like) or
+`"moller"`; the code converts the name to an internal integer. `sigma_m_0`
+is the physical low-speed isotropic-equivalent cross section per mass in
+cm²/g, and `w` is in km/s. Set `w=float("inf")` for constant hard-sphere
+scattering with that same amplitude; either model then gives identical
+transport factors. The moment arguments use the **single-particle 1D velocity
+dispersion** divided by `w`; do not insert an extra factor of sqrt(2).
+
+The default `smfp_order=2` uses the second-order moment combination normalized
+by 45/44, so its constant-scattering limit is one. Thus `b=1.3847` retains
+its hard-sphere meaning; do not apply another 44/45 correction to the cross
+section or `b`. First order (`smfp_order=1`) is also supported.
+
+The current calibration defaults are `alph=0.57` and `c=0.86` (`c` is the
+coefficient called beta in our calibration discussion). These are the adopted
+Rutherford, second-order calibration, based on mean-core-density arrival
+times at 10^2.6. They are not a separately established calibration for Møller
+or first-order transport. The historical `(0.5, 0.9)` baseline can be selected
+explicitly with `alph=0.5, c=0.9`; it is not automatically imposed at large `w`.
+The production implementation evaluates transport moments locally as the
+halo evolves.
+
+The common reference dispersion is fixed at `0.33*v_s` for both transport
+moments. With `F = sqrt(K_L_ref*K_S_ref)`, the dimensionless cross section is
+`hat_sigma_eff = sigma_m_0*rho_s*r_s*F` (using consistent physical units), and
+`t_s = 1/(a*sigma_m_0*rho_s*v_s*K_L_ref)`. Consequently saved `time` is
+physical time divided by this new `t_s`, not the old amplitude-only time unit.
+`time_Gyr` remains physical time. In the hard-sphere limit both reference
+moments and `F` equal one. See the [units reference](docs/output-reference.md#units-and-normalization)
+for conversions and the corresponding `state.char` attributes.
+
+`stop.t_halt` is an **absolute** time in the new units; `run(stoptime=...)`
+is an additional duration in those units. Despite its name, `run(rho_c=...)`
+tests the **innermost-cell density**, not the mean core density recorded as
+`rho_c`. The configured `stop.rho0_halt` also uses innermost-cell density,
+with the intentional numerical guard `time > 50`.
+
+### Reusing initial conditions
+
+```python
+from pathlib import Path
+
+config.init = ("truncated_nfw", {"Mvir": 1e12, "cvir": 30.0, "Zt": 0.00807})
+ic_path = Path("./ics/nfw_c30_Zt000807.dat")
+ic_path.parent.mkdir(parents=True, exist_ok=True)
+if not ic_path.exists():
+    gtf.State.make_ic_file(config, str(ic_path))
+state = gtf.State.from_config(config, ic_filepath=str(ic_path))
+```
+
+`Mvir` is in Msun/h. Reuse an IC file only with matching halo/profile and grid
+assumptions; keep its generating configuration with it. Loading the file
+starts a new run and relaxes the saved initial profile; this is not a restart.
+Set scattering and output parameters independently for each new run.
 
 ### Plotting
 
@@ -204,36 +274,19 @@ state.make_movie(profiles=['rho', 'kn', 'v2'])
 
 ## Output files
 
-All outputs are written to the directory specified by `config.io.base_dir` and `model_no`.
+Outputs live in `config.io.base_dir/ModelXXXXX/`. The complete
+[output reference](docs/output-reference.md) documents every column of
+`time_evolution.txt`, `profile_*.dat`, and `logfile.txt`, including units,
+core definitions, transport diagnostics, and undefined boundary values.
+It also describes `snapshot_conversion.txt`, `char_params.txt`, and
+`model_metadata.txt`.
 
-### 1. `model_metadata.txt`
-
-Stores all information about the simulation model for reference.  Unpacks all attributes of the `Config` object that instantiated the `State`.
-
-### 2. `logfile.txt`
-
-Logs relevant quantities every `nlog` steps (set in `config.io`).  If `chatter` is set to `True`, then these are also output to the console.
-
-### 3. `profile_x.dat`
-
-Radial profiles of all fluid variables, written each time the central density changes by a fractional amount `drho_prof` (set in `config.io`). The suffix `x` is the snapshot index.  `snapshot_conversion.txt` stores the conversion between the snapshot index `x` and simulation time.
-
-Column names are written in the header and read dynamically. They include
-`log_r`, `log_rmid`, `m`, `rho`, `v2`, amplitude-reference `kn`/`mfp`,
-conductivity-effective `kn_cond`/`mfp_cond`, temperature-gradient diagnostics,
-cell/face conductivities and their SMFP/LMFP ratios, and `x`, `K_L`, `K_S`,
-`mfp_cond_ltemp`. `log_r` is the outer shell edge; face conductivity columns
-use that coordinate. Radii and masses are in r_s and m_s units.
-
-### 4. `time_evolution.txt`
-
-Contains both core definitions (`_c`, half central density; `_m2`, density
-slope -2), including `x`, `K_L`, and `K_S` evaluated at their mean dispersions.
-`time`, `dt`, and `tsc_c` use t_s units; `time_Gyr` is physical time.
-Finalization adds core-evolution slopes. Successive `run()` calls retain
-earlier rows and regenerate these slopes.
-
-Records the time evolution of relevant quantities, written each time the central density changes by a fractional amount `drho_tevol` (set in `config.io`).
+Profiles and histories are normally triggered by fractional changes in
+**innermost-cell density** (`io.drho_prof` and `io.drho_tevol`). Initialization
+and run endpoints write outputs too. `io.nlog` controls step-based logging;
+`io.chatter` also sends log entries to the console. Saved `rho0` is the
+innermost-cell density; saved `rho_c` is the mean density enclosed by the
+half-central-density radius. They are not interchangeable.
 
 ---
 
@@ -246,12 +299,14 @@ halogtf/
 │
 ├── parameters/             # Parameter subclasses for 'Config' attributes
 │   ├── char_params.py
+│   ├── cosmo_params.py
 │   ├── constants.py
 │   ├── grid_params.py
 │   ├── init_params.py
 │   ├── io_params.py
-│   ├── prec_params.py
-│   └── sim_params.py
+│   ├── num_params.py
+│   ├── scatter_params.py
+│   └── stop_params.py
 │
 ├── profiles/               # Profile specific tools to set initial conditions of 'State'
 │   ├── abg.py
@@ -265,7 +320,7 @@ halogtf/
 │   └── hydrostatic.py
 │
 ├── io/                     # I/O routines
-│   └── write.py
+│   ├── write.py
 │   └── read.py
 │
 ├── plot/                   # Plotting routines
