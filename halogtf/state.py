@@ -287,8 +287,8 @@ class State:
         # This helps reduce artificial gradients in innermost cell
         if self.config.init.profile == "nfw":
             r1 = r[1]
-            rho_c_ideal = 1.0 / (r1 * (1.0 + r1)**2)
-            rho[0] = 2.0 * rho_c_ideal - rho[1]
+            rho_nfw_r1 = 1.0 / (r1 * (1.0 + r1)**2)
+            rho[0] = 2.0 * rho_nfw_r1 - rho[1]
 
             dr_ratio = (r[2] - r[0]) / (r[3] - r[1])
             p = rho * v2
@@ -492,7 +492,7 @@ class State:
         if config.io.chatter:
             print("State initialized.")
 
-    def run(self, steps=None, stoptime=None, rho_c=None):
+    def run(self, steps=None, stoptime=None, rho0=None):
         """
         Run the simulation until a halting criterion is met.
         User can set halting criteria to run for a specified duration.
@@ -505,8 +505,8 @@ class State:
             Number of steps to advance the simulation
         stoptime : float, optional
             Amount of simulation time by which to advance the simulation
-        rho_c: float, optional
-            Maximum innermost-cell density (rho[0]/rho_s) to advance until
+        rho0: float, optional
+            Maximum innermost-cell density in units of rho_s
         """
         from halogtf.evolve.integrator import run_until_stop
         from halogtf.io.write import write_log_entry, write_profile_snapshot, write_time_evolution
@@ -521,8 +521,8 @@ class State:
             kwargs['steps'] = steps
         if stoptime is not None:
             kwargs['stoptime'] = stoptime
-        if rho_c is not None:
-            kwargs['rho_c'] = rho_c
+        if rho0 is not None:
+            kwargs['rho0'] = rho0
 
         # Write initial state to disk 
         write_profile_snapshot(self)

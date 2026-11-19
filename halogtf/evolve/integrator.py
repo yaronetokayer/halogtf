@@ -16,7 +16,7 @@ def run_until_stop(state, start_step, **kwargs):
     # User halting criteria
     steps       = kwargs.get('steps', None)
     time_limit  = kwargs.get('stoptime', None)
-    rho_c_limit = kwargs.get('rho_c', None)
+    rho0_limit = kwargs.get('rho0', None)
     step_i      = state.step_count if steps is not None else None
     time_i      = state.t if time_limit is not None else None
 
@@ -123,7 +123,7 @@ def run_until_stop(state, start_step, **kwargs):
         if (
             (steps is not None and step_count - step_i >= steps)
             or (time_limit is not None and state.t - time_i >= time_limit)
-            or (rho_c_limit is not None and rho0 >= rho_c_limit)
+            or (rho0_limit is not None and rho0 >= rho0_limit)
         ):
             if chatter:
                 print("Simulation halted: user stopping condition reached")

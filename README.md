@@ -96,10 +96,10 @@ We can also run for a specified duration:
 ```python
 state.run(steps=100) # Run for 100 simulation steps
 state.run(stoptime=55.0) # Run for a duration of 55.0 simulation time units
-state.run(rho_c=5000.0) # Run until the central density exceeds 500.0
+state.run(rho0=5000.0) # Run until the central density exceeds 500.0
 ```
 
-The first satisfied user or configuration stopping condition ends the run. The configured density limit is checked only after time > 50; `run(rho_c=...)` applies immediately after a step. Multiple `run()` commands can be executed in succession, and each will continue from the current state.  Call `state.reset()` to reset the state to its initial condition and reset the step counter.
+The first satisfied user or configuration stopping condition ends the run. The configured density limit is checked only after time > 50; `run(rho0=...)` applies immediately after a step. Multiple `run()` commands can be executed in succession, and each will continue from the current state.  Call `state.reset()` to reset the state to its initial condition and reset the step counter.
 
 To customize defaults:
 
@@ -171,10 +171,7 @@ moments and `F` equal one. See the [units reference](docs/output-reference.md#un
 for conversions and the corresponding `state.char` attributes.
 
 `stop.t_halt` is an **absolute** time in the new units; `run(stoptime=...)`
-is an additional duration in those units. Despite its name, `run(rho_c=...)`
-tests the **innermost-cell density**, not the mean core density recorded as
-`rho_c`. The configured `stop.rho0_halt` also uses innermost-cell density,
-with the intentional numerical guard `time > 50`.
+is an additional duration in those units.
 
 ### Reusing initial conditions
 
@@ -216,7 +213,7 @@ gtf.plot_time_evolution([5, 6], quantity="kn_cond_c", base_dir='./', show=True) 
 
 # The plot can be saved to a file
 # Use 'show' to show the figure in standard output as well
-gtf.plot_time_evolution(state1, filepath='./rho_c_vs_time.png', show=True)
+gtf.plot_time_evolution(state1, filepath='./rho0_vs_time.png', show=True)
 ```
 
 The `plot_snapshots()` function plots up to three profiles in separate panels for one or multiple snapshots of the simulation.  Snapshots are specified by the index of the `profile_x.dat` file.  Like `plot_time_evolution()`, the State object, Config object, or model number can be used to specify the simulation you wish to plot.
@@ -284,7 +281,7 @@ Profiles and histories are normally triggered by fractional changes in
 and run endpoints write outputs too. `io.nlog` controls step-based logging;
 `io.chatter` also sends log entries to the console. Saved `rho0` is the
 innermost-cell density; saved `rho_c` is the mean density enclosed by the
-half-central-density radius. They are not interchangeable.
+half-central-density radius.
 
 ---
 
