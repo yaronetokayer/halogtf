@@ -50,8 +50,6 @@ class ScatterParams:
         self._w = None
         self._smfp_order = None
         self._alph = None
-        self._t_halt = None
-        self._rho0_halt = None
         self._a = None
         self._b = None
         self._c = None
@@ -61,8 +59,6 @@ class ScatterParams:
         self.w = w
         self.smfp_order = smfp_order
         self.alph = alph
-        self.t_halt = t_halt
-        self.rho0_halt = rho0_halt
         self.a = a
         self.b = b
         self.c = c
@@ -122,26 +118,6 @@ class ScatterParams:
         if isinstance(value, bool) or not math.isfinite(value) or value <= 0:
             raise ValueError("alph must be positive")
         self._alph = float(value)
-
-    @property
-    def t_halt(self):
-        return self._t_halt
-
-    @t_halt.setter
-    def t_halt(self, value):
-        if isinstance(value, bool) or math.isnan(value) or value <= 0:
-            raise ValueError("t_halt must be positive")
-        self._t_halt = float(value)
-
-    @property
-    def rho0_halt(self):
-        return self._rho0_halt
-
-    @rho0_halt.setter
-    def rho0_halt(self, value):
-        if isinstance(value, bool) or math.isnan(value) or value <= 0:
-            raise ValueError("rho0_halt must be positive")
-        self._rho0_halt = float(value)
 
     @property
     def a(self):
