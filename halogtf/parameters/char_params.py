@@ -12,14 +12,18 @@ class CharParams:
         ABG normalization factor (None unless using ABG).
     m_s : float
         Characteristic mass scale [Msun].
-    sigma0 : float
+    sigma_m_s : float
         Characteristic cross section [cm^2/g].
-    t0 : float
+    t_s : float
         Characteristic time scale [sec].
-    v0 : float
+    v_s : float
         Characteristic velocity scale [km/s].
     rho_s : float
         Characteristic density [Msun / Mpc^3].
+    sigma_m_0_char : float
+        sigma_m_0 in characteristic cross section per unit mass units.
+    w_char : float
+        w in characteristic velocity units.
     mtot_m200 : float
         Ratio of total mass to M200 for a truncated NFW.
     """
@@ -29,12 +33,18 @@ class CharParams:
         self.fc = None
         self.chi = None
         self.m_s = None
-        self.sigma0 = None
-        self.t0 = None
-        self.v0 = None
+        self.sigma_m_s = None
+        self.sigma_m_s_hardsphere = None
+        self.t_s = None
+        self.v_s = None
         self.rho_s = None
-        self.sigma_m_char = None
+        self.sigma_m_0_char = None
+        self.sigma_m_0_char_hardsphere = None
+        self.w_char = None
         self.mtot_m200 = None
+        self.k_l_ref = None
+        self.k_s_ref = None
+        self.dynamical_time_factor = None
 
     def __repr__(self):
         attrs = ", ".join(

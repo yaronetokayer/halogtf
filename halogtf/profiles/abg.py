@@ -19,8 +19,8 @@ def chi(config):
     beta = float(config.init.beta)
     gamma = float(config.init.gamma)
     expo = (beta - gamma) / alpha
-    epsabs = float(config.prec.epsabs)
-    epsrel = float(config.prec.epsrel)
+    epsabs = float(config.num.epsabs)
+    epsrel = float(config.num.epsrel)
 
     def chi_integrand(x):
         return x**(2.0 - gamma) / (1.0 + x**alpha)**expo
@@ -57,23 +57,23 @@ def menc_abg(r, config):
     Returns
     -------
     M_enc : float or ndarray
-        Enclosed mass in units of Mvir.
+        Enclosed mass in units of m_s = 4*pi*rho_s*r_s^3.
     """
     alpha = float(config.init.alpha)
     beta  = float(config.init.beta)
     gamma = float(config.init.gamma)
-    epsabs = float(config.prec.epsabs)
-    epsrel = float(config.prec.epsrel)
+    epsabs = float(config.num.epsabs)
+    epsrel = float(config.num.epsrel)
 
     r = np.asarray(r, dtype=np.float64)
     out = np.empty(r.shape, dtype=np.float64)
 
-    for i, ri in enumerate(r):
+    for i, ri in np.ndenumerate(r):
         integral, _ = quad(_abg_jeans_mass_integrand, 0.0, float(ri), 
                            args=(alpha, beta, gamma), epsabs=epsabs, epsrel=epsrel)
         out[i] = integral
 
-    return out if out.size > 1 else float(out[0])
+    return float(out) if out.ndim == 0 else out
 
 def sigr_abg(r, config):
     """
@@ -89,22 +89,22 @@ def sigr_abg(r, config):
     Returns
     -------
     v2 : float or ndarray
-        Velocity dispersion squared.
+        One-dimensional velocity dispersion squared in units of v_s^2.
     """
     alpha = float(config.init.alpha)
     beta  = float(config.init.beta)
     gamma = float(config.init.gamma)
 
-    epsabs = float(config.prec.epsabs)
-    epsrel = float(config.prec.epsrel)
+    epsabs = float(config.num.epsabs)
+    epsrel = float(config.num.epsrel)
 
     r = np.asarray(r, dtype=np.float64)
     out = np.empty(r.shape, dtype=np.float64)
 
-    for i, ri in enumerate(r):
+    for i, ri in np.ndenumerate(r):
         integrand = lambda x: _abg_velocity_integrand(x, alpha, beta, gamma, epsabs, epsrel)
         integral, _ = quad(integrand, float(ri), np.inf, epsabs=epsabs, epsrel=epsrel)
         rho_ri = ri**(-gamma) / (1.0 + ri**alpha)**((beta - gamma) / alpha)
         out[i] = integral / rho_ri
 
-    return out if out.size > 1 else float(out[0])
+    return float(out) if out.ndim == 0 else out

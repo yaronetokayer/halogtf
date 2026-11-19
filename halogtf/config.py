@@ -6,9 +6,10 @@ from halogtf.parameters.init_params import (
     NFWParams,
     make_init_params,
 )
-from halogtf.parameters.prec_params import PrecisionParams
-from halogtf.parameters.sim_params import SimParams
+from halogtf.parameters.num_params import NumericalParams
+from halogtf.parameters.scatter_params import ScatterParams
 from halogtf.parameters.cosmo_params import CosmoParams
+from halogtf.parameters.stop_params import StopParams
 
 def _init_param(param_class, arg):
     if arg is None:
@@ -29,8 +30,9 @@ class Config:
     io      : IOParams
     grid    : GridParams
     init    : InitParams subclass (e.g., NFWParams, ABGParams)
-    sim     : SimParams
-    prec    : PrecisionParams
+    scatter : ScatterParams
+    num     : NumericalParams
+    stop    : StopParams
     cosmo   : CosmoParams
 
     You can modify the initial profile like:
@@ -44,27 +46,29 @@ class Config:
         io=None,
         grid=None,
         init=None,
-        sim=None,
-        prec=None,
+        scatter=None,
+        num=None,
+        stop=None,
         cosmo=None,
     ):
-        self.io     = _init_param(IOParams, io)
-        self.grid   = _init_param(GridParams, grid)
-        self._init  = None
-        self.init   = init  # goes through the setter
-        self.sim    = _init_param(SimParams, sim)
-        self.prec   = _init_param(PrecisionParams, prec)
-        self.cosmo  = _init_param(CosmoParams, cosmo)
+        self.io         = _init_param(IOParams, io)
+        self.grid       = _init_param(GridParams, grid)
+        self._init      = None
+        self.init       = init  # goes through the setter
+        self.scatter    = _init_param(ScatterParams, scatter)
+        self.num        = _init_param(NumericalParams, num)
+        self.stop       = _init_param(StopParams, stop)
+        self.cosmo      = _init_param(CosmoParams, cosmo)
 
     @classmethod
     def from_dict(cls, meta: Dict[str, Dict[str, Any]]) -> "Config":
         """
         Build a Config from the nested dict produced by halogtf.io.read.import_metadata().
 
-        This is used when a state is constructed with State.from_dir().
+        Reconstructs parameters only; State.from_dir restart is not implemented.
 
         The `meta` dict is expected to have sections like:
-          "_init", "grid", "io", "prec", "sim"
+          "_init", "grid", "io", "num", "stop", "scatter", "cosmo"
         with keys possibly prefixed by underscores (e.g., "_Mvir", "_rmax", ...).
         """
         # Helper: strip leading underscores off keys
@@ -84,15 +88,17 @@ class Config:
         _init_raw = get_section("init")
         _grid_raw = get_section("grid")
         _io_raw   = get_section("io")
-        _prec_raw = get_section("prec")
-        _sim_raw  = get_section("sim")
+        _num_raw = get_section("num")
+        _stop_raw = get_section("stop")
+        _scatter_raw  = get_section("scatter")
         _cosmo_raw = get_section("cosmo")
 
         init_raw = norm(_init_raw)
         grid_raw = norm(_grid_raw)
         io_raw   = norm(_io_raw)
-        prec_raw = norm(_prec_raw)
-        sim_raw  = norm(_sim_raw)
+        num_raw = norm(_num_raw)
+        stop_raw = norm(_stop_raw)
+        scatter_raw  = norm(_scatter_raw)
         cosmo_raw = norm(_cosmo_raw)
 
         # Build InitParams via existing factory
@@ -102,12 +108,13 @@ class Config:
         # Build the other parameter blocks using constructors
         io_params   = IOParams(**io_raw)
         grid_params = GridParams(**grid_raw)
-        prec_params = PrecisionParams(**prec_raw)
-        sim_params  = SimParams(**sim_raw)
+        num_params = NumericalParams(**num_raw)
+        stop_params = StopParams(**stop_raw)
+        scatter_params  = ScatterParams(**scatter_raw)
         cosmo_params = CosmoParams(**cosmo_raw)
 
         return cls(io=io_params, grid=grid_params, init=init_params,
-                   sim=sim_params, prec=prec_params, cosmo=cosmo_params)
+                   scatter=scatter_params, num=num_params, stop=stop_params, cosmo=cosmo_params)
 
     @property
     def init(self):
@@ -136,9 +143,9 @@ class Config:
             f"  io={self.io},\n"
             f"  grid={self.grid},\n"
             f"  init={self.init},\n"
-            f"  sim={self.sim},\n"
-            f"  prec={self.prec}\n"
+            f"  scatter={self.scatter},\n"
+            f"  num={self.num},\n"
+            f"  stop={self.stop}\n"
             f"  cosmo={self.cosmo}\n"
             f")"
         )
-

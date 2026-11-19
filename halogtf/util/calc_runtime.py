@@ -1,12 +1,57 @@
 """
-Helpers to for derived quantities in the integration loop
+Helpers for derived quantities in the integration loop
 """
 
 import numpy as np
 import math
 from numba import njit, void, float64, types
 from halogtf.util.interpolate import interp_linear_to_interfaces, interp_pl_to_r
+from halogtf.util.calc_kp import factors, conductivity, relative_factors
 from halogtf.util.calc_core import calc_core_r, calc_mean_within_r
+
+@njit(void(float64[:], float64[:], float64, float64, types.int64, types.int64, float64[:], float64[:], float64[:], float64[:]), cache=True)
+def calc_transport_scales(v2, rho, sigma_m_0, w_char, smfp_order, model_id, kn, mfp, kn_cond, mfp_cond):
+    """
+    Fill amplitude-reference and conductivity-effective cell diagnostics.
+
+    Parameters
+    ----------
+    v2, rho : ndarray, shape (N,)
+        Positive dimensionless dispersion squared and density.
+    sigma_m_0 : float
+        Cross-section amplitude per mass in characteristic units.
+        This should be the hard sphere amplitude, not the velocity-dependent amplitude.
+    w_char : float
+        Velocity scale w / v_s; positive infinity selects constant scattering.
+    smfp_order : int
+        SMFP moment approximation, 1 or normalized 2.
+    model_id : int
+        Scattering model identifier. Use MODEL_RUTHERFORD or MODEL_MOLLER.
+    kn, mfp : ndarray, shape (N,)
+        Output reference diagnostics using only the fixed amplitude:
+        kn = 1 / (sigma_m_0 * sqrt(rho * v2)),
+        mfp = 1 / (sigma_m_0 * rho), in units of r_s.
+        For finite w these are not velocity-averaged collision diagnostics.
+    kn_cond, mfp_cond : ndarray, shape (N,)
+        Output effective conductivity diagnostics: reference values divided
+        by sqrt(K_L * K_S). Then kappa_S / kappa_L = b/(a*c) * kn_cond^2.
+        mfp_cond = H * kn_cond with H = sqrt(v2/rho), in units of r_s.
+        This effective length is not the literal mean distance between
+        collisions, which requires a separately defined collision-rate average.
+
+    Notes
+    -----
+    Both pairs coincide for infinite w. The normalized second-order factor
+    preserves b as the constant-limit conductivity coefficient.
+    """
+    for i in range(v2.size):
+        kn[i] = 1.0 / (sigma_m_0 * math.sqrt(rho[i] * v2[i]))
+        mfp[i] = 1.0 / (sigma_m_0 * rho[i])
+        kl, ks, _, _ = factors(v2[i], w_char, model_id, smfp_order)
+        # Separate square roots avoid prematurely underflowing KL * KS.
+        factor = math.sqrt(kl) * math.sqrt(ks)
+        kn_cond[i] = kn[i] / factor
+        mfp_cond[i] = mfp[i] / factor
 
 @njit(float64(float64, float64, float64, float64), fastmath=True, cache=True)
 def low_kn_boost(kn_c, kn_threshold, boost, width):
@@ -15,18 +60,24 @@ def low_kn_boost(kn_c, kn_threshold, boost, width):
 
     Returns ~1 when kn_c >> kn_threshold,
     ~boost when kn_c << kn_threshold.
+
+    The argument kn_c is the supplied core diagnostic; the driver passes
+    state.kn_cond_c, the conductivity-effective core Knudsen number.
+    Use boost = 1 to disable relaxation during convergence tests.
     """
     x = np.log10(kn_c / kn_threshold)
     S = 1.0 / (1.0 + np.exp(x / width))
 
     return 1.0 + (boost - 1.0) * S
  
-@njit(void(float64[:], float64[:], float64[:]), fastmath=True, cache=True)
+@njit(void(float64[:], float64[:], float64[:]), cache=True)
 def calc_ltemp(ltemp, v2, rmid):
     """
     ltemp = v2 / |dv2/dr|
     In-place update of ltemp.
     dv2dr via finite differences on possibly nonuniform rmid.
+    Vanishing gradients give infinite ltemp; the first two cells are
+    undefined (except the outer cell on a two-cell grid).
     """
     n = v2.size
 
@@ -41,22 +92,25 @@ def calc_ltemp(ltemp, v2, rmid):
     ltemp[1] = np.nan
 
     for i in range(2, n - 1):
-        ltemp[i] = v2[i] * np.abs(rmid[i + 1] - rmid[i - 1]) / np.abs(v2[i + 1] - v2[i - 1])
+        gradient = abs(v2[i + 1] - v2[i - 1])
+        ltemp[i] = v2[i] * abs(rmid[i + 1] - rmid[i - 1]) / gradient if gradient > 0 else np.inf
 
-    ltemp[n - 1] = v2[n - 1] * np.abs(rmid[n - 1] - rmid[n - 2]) / np.abs(v2[n - 1] - v2[n - 2])
+    gradient = abs(v2[n - 1] - v2[n - 2])
+    ltemp[n - 1] = v2[n - 1] * abs(rmid[n - 1] - rmid[n - 2]) / gradient if gradient > 0 else np.inf
 
-@njit(types.Tuple((float64[::1], float64[::1], float64[::1],))(float64[::1], float64[::1], float64[::1], float64, float64, float64, float64, float64,), cache=True, fastmath=True,)
-def calc_kappa_cell(v2, rho, rmid, a_param, b_param, c_param, sigma_m, alph,):
+@njit(types.Tuple((float64[::1], float64[::1], float64[::1],))(float64[::1], float64[::1], float64[::1], float64, float64, float64, float64, float64, float64, types.int64, float64, float64, types.int64), cache=True)
+def calc_kappa_cell(v2, rho, rmid, a_param, b_param, c_param, sigma_m, alph, w_char, model_id, k_l_ref, k_s_ref, smfp_order,):
     """
     Compute the cell-centered LMFP, SMFP, and interpolated conductivities, shape (N,)
 
-        kappa_LMFP = (3/2) * v * r^2 * (c * rho * v^2)
+        kappa_LMFP = (3/2) * v * r^2 * (c * rho * v^2 * K_L)
 
-        kappa_SMFP = (3/2) * v * r^2 * b / (a * sigma_m^2)
+        kappa_SMFP = (3/2) * v * r^2 * b / (a * sigma_m^2 * K_S)
 
         kappa = ( kappa_LMFP^(-alpha) + kappa_SMFP^(-alpha) )^(-1/alpha).
 
-    The returned conductivity is positive.
+    Internal conductivities are positive; values include the 3/2 and r^2
+    factors used in the package luminosity convention.
 
     Parameters
     ----------
@@ -73,9 +127,18 @@ def calc_kappa_cell(v2, rho, rmid, a_param, b_param, c_param, sigma_m, alph,):
     c_param : float
         Coefficient c in the LMFP conductivity.
     sigma_m : float
-        Self-interaction cross section per unit mass.
+        Cross-section amplitude per unit mass in characteristic units.
     alph : float
         Positive interpolation parameter.
+    w_char : float
+        Velocity scale w / v_s. Positive infinity selects constant scattering.
+    model_id : int
+        Scattering model identifier. Use MODEL_RUTHERFORD or MODEL_MOLLER.
+    k_l_ref, k_s_ref : float
+        Reference values for dimensionless thermal averages of velocity cross section.
+    smfp_order : int
+        SMFP moment approximation, 1 or 2; order 2 retains the normalized
+        convention of calc_kp.factors.
 
     Returns
     -------
@@ -97,8 +160,6 @@ def calc_kappa_cell(v2, rho, rmid, a_param, b_param, c_param, sigma_m, alph,):
         a_param * sigma_m * sigma_m
     )
     lmfp_fac = 1.5 * c_param
-    neg_alph = -alph
-    neg_inv_alph = -1.0 / alph
 
     for i in range(n):
         v2_i = v2[i]
@@ -107,32 +168,39 @@ def calc_kappa_cell(v2, rho, rmid, a_param, b_param, c_param, sigma_m, alph,):
         # common geometric/velocity factor: v * r^2
         vr2 = math.sqrt(v2_i) * r_i * r_i
 
-        k_l_i = lmfp_fac * vr2 * rho[i] * v2_i
-        k_s_i = smfp_fac * vr2
+        kl, ks, _, _ = relative_factors(v2_i, w_char, model_id, smfp_order, k_l_ref, k_s_ref)
+        k_l_i = lmfp_fac * vr2 * rho[i] * v2_i * kl
+        k_s_i = smfp_fac * vr2 / ks
 
         k_l[i] = k_l_i
         k_s[i] = k_s_i
 
-        k[i] = (
-            k_l_i**neg_alph
-            + k_s_i**neg_alph
-        )**neg_inv_alph
+        coeff, _ = conductivity(
+            v2_i, rho[i], sigma_m, w_char, model_id, k_l_ref, k_s_ref,
+            alph, a_param, b_param, c_param, smfp_order,
+        )
+        k[i] = 1.5 * r_i * r_i * coeff
 
     return k_l, k_s, k
 
-@njit(types.Tuple((float64[::1], float64[::1], float64[::1],))(float64[::1], float64[::1], float64[::1], float64, float64, float64, float64, float64,), cache=True, fastmath=True,)
-def calc_kappa_edge(v2, rho, r, a_param, b_param, c_param, sigma_m, alph,):
+@njit(types.Tuple((float64[::1], float64[::1], float64[::1],))(float64[::1], float64[::1], float64[::1], float64, float64, float64, float64, float64, float64, types.int64, float64, float64, types.int64), cache=True)
+def calc_kappa_edge(v2, rho, r, a_param, b_param, c_param, sigma_m, alph, w_char, model_id, k_l_ref, k_s_ref, smfp_order,):
     """
-    Compute the edge LMFP, SMFP, and interpolated conductivities, shape (N,), but with
-    the boundary condition of zero at the edge.
+    Compute LMFP, SMFP, and interpolated conductivities at outer cell edges.
 
-        kappa_LMFP = (3/2) * v * r^2 * (c * rho * v^2)
+    Output index i corresponds to r[i+1]. Internal faces use the arithmetic
+    mean temperature and interpolated density of the active implicit solver.
+    The last entry is NaN: the imposed outer zero flux does not define a
+    boundary conductivity. The central edge is not included.
 
-        kappa_SMFP = (3/2) * v * r^2 * b / (a * sigma_m^2)
+        kappa_LMFP = (3/2) * v * r^2 * (c * rho * v^2 * K_L)
+
+        kappa_SMFP = (3/2) * v * r^2 * b / (a * sigma_m^2 * K_S)
 
         kappa = ( kappa_LMFP^(-alpha) + kappa_SMFP^(-alpha) )^(-1/alpha).
 
-    The returned conductivity is positive.
+    Internal conductivities are positive; values include the 3/2 and r^2
+    factors used in the package luminosity convention.
 
     Parameters
     ----------
@@ -149,9 +217,14 @@ def calc_kappa_edge(v2, rho, r, a_param, b_param, c_param, sigma_m, alph,):
     c_param : float
         Coefficient c in the LMFP conductivity.
     sigma_m : float
-        Self-interaction cross section per unit mass.
+        Cross-section amplitude per unit mass in characteristic units.
     alph : float
         Positive interpolation parameter.
+    w_char : float
+        Velocity scale w / v_s. Positive infinity selects constant scattering.
+    smfp_order : int
+        SMFP moment approximation, 1 or 2; order 2 retains the normalized
+        convention of calc_kp.factors.
 
     Returns
     -------
@@ -168,16 +241,15 @@ def calc_kappa_edge(v2, rho, r, a_param, b_param, c_param, sigma_m, alph,):
     k_s = np.empty(n, dtype=np.float64)
     k   = np.empty(n, dtype=np.float64)
 
-    rho_int = interp_linear_to_interfaces(r, rho) # Shape (N-1,)
-    v2_int  = interp_linear_to_interfaces(r, v2)
+    rho_int = np.empty(n - 1, dtype=np.float64)
+    interp_linear_to_interfaces(r, rho, rho_int) # Shape (N-1,)
+    v2_int  = 0.5 * (v2[:-1] + v2[1:]) # Match the active implicit flux.
 
     # Quantities that are constant across all cells.
     smfp_fac = 1.5 * b_param / (
         a_param * sigma_m * sigma_m
     )
     lmfp_fac = 1.5 * c_param
-    neg_alph = -alph
-    neg_inv_alph = -1.0 / alph
 
     for i in range(n-1):
         v2_i    = v2_int[i]
@@ -186,16 +258,18 @@ def calc_kappa_edge(v2, rho, r, a_param, b_param, c_param, sigma_m, alph,):
         # common geometric/velocity factor: v * r^2
         vr2 = math.sqrt(v2_i) * r_i * r_i
 
-        k_l_i = lmfp_fac * vr2 * rho_int[i] * v2_i
-        k_s_i = smfp_fac * vr2
+        kl, ks, _, _ = relative_factors(v2_i, w_char, model_id, smfp_order, k_l_ref, k_s_ref)
+        k_l_i = lmfp_fac * vr2 * rho_int[i] * v2_i * kl
+        k_s_i = smfp_fac * vr2 / ks
 
         k_l[i] = k_l_i
         k_s[i] = k_s_i
 
-        k[i] = (
-            k_l_i**neg_alph
-            + k_s_i**neg_alph
-        )**neg_inv_alph
+        coeff, _ = conductivity(
+            v2_i, rho_int[i], sigma_m, w_char, model_id, k_l_ref, k_s_ref, 
+            alph, a_param, b_param, c_param, smfp_order,
+        )
+        k[i] = 1.5 * r_i * r_i * coeff
 
     # Nan for last edge, boundary condition
     k_l[n-1] = np.nan; k_s[n-1] = np.nan; k[n-1] = np.nan
@@ -205,7 +279,10 @@ def calc_kappa_edge(v2, rho, r, a_param, b_param, c_param, sigma_m, alph,):
 @njit(float64(float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64, float64, float64, float64, float64, float64,), cache=True, fastmath=True)
 def calc_core_lum_dt(r, rmid, rho, v2, m, alpha, a, b, c, sigma_m, eps,):
     """
-    Estimate the timestep that limits fractional core-energy loss.
+    Legacy constant-scattering estimate of a core-energy-loss timestep.
+
+    Not used by the active driver. This helper has not been migrated to
+    velocity-dependent factors; do not use it as a finite-w limiter.
 
     Returns
     -------
@@ -214,14 +291,8 @@ def calc_core_lum_dt(r, rmid, rho, v2, m, alpha, a, b, c, sigma_m, eps,):
             The luminosity constraint is inactive, for example because
             there is no resolved core interface or the gradient is zero.
 
-        0.0:
-            The evolved state contains nonfinite or nonphysical quantities.
-            Returning zero is conservative for a timestep limiter.
-
-    Raises
-    ------
-    ValueError
-        For invalid static configuration or incompatible array shapes.
+    Inputs must have compatible shapes and positive physical values;
+    this low-level legacy helper does not validate them.
     """
     N = rmid.size
 

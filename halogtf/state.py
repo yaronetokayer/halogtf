@@ -27,6 +27,11 @@ class State:
     """
     Holds characteristic scales, grid, physical variables, time tracking,
     and simulation diagnostics. Constructed from a Config object.
+
+    kn and mfp retain amplitude-reference meanings. kn_cond and mfp_cond
+    describe the conductivity transition, not literal collision statistics.
+    kn_c and kn_cond_c are their respective core logarithmic means.
+    The timestep tolerance boost uses kn_cond_c.
     """
 
     def __init__(self, config, ic_filepath=None):
@@ -71,7 +76,10 @@ class State:
     @classmethod
     def from_dir(cls, model_dir: str, snapshot: None | int = None):
         """
-        Create a State object from an existing model directory.
+        Restart from a model directory (not implemented).
+
+        This method currently raises RuntimeError. Use from_config with
+        ic_filepath to start a new run from a saved profile; that resets time.
 
         Parameters
         ----------
@@ -80,65 +88,12 @@ class State:
         snapshot : int, optional
             Snapshot index to load. If None, loads the latest snapshot.
 
-        Returns
-        -------
-        State
-            A new State object initialized with data from the specified directory.
+        Raises
+        ------
+        RuntimeError
+            Restart support is not implemented.
         """
-        raise RuntimeError("this module is still in development")
-        # Check directory exists
-        p = Path(model_dir)
-        if not p.is_dir():
-            raise FileNotFoundError(f"Model directory does not exist: {p}")
-        
-        # Imports
-        from halogtf.io.read import import_metadata, load_snapshot_bundle
-        from halogtf.config import Config
-
-        meta = import_metadata(p)
-        snapshot_bundle = load_snapshot_bundle(p, snapshot=snapshot)
-
-        # Construct config and state
-
-        config = Config.from_dict(meta)
-        if config.io.chatter:
-            print("Set config from metadata.")
-
-        state = cls(config)
-
-        if config.io.chatter:
-            print("Setting state variables from snapshot...")     
-
-        prec = config.prec
-
-        state.r = np.insert(10**snapshot_bundle['log_r'].astype(np.float64), 0, 0.0)
-        state.rmid = 10**snapshot_bundle['log_rmid'].astype(np.float64)
-        state.m = np.insert(snapshot_bundle['m'].astype(np.float64), 0, 0.0)
-        state.rho = snapshot_bundle['rho'].astype(np.float64)
-        state.v2 = snapshot_bundle['v2'].astype(np.float64)
-        state.trelax = snapshot_bundle['trelax'].astype(np.float64)
-        state.kn = snapshot_bundle['kn'].astype(np.float64)
-        state.t = float(snapshot_bundle['time'])
-        state.step_count = int(snapshot_bundle['step_count'])
-        state.snapshot_index = int(snapshot_bundle['snapshot_index'])
-
-        state.dt = float(prec.eps_dt)
-
-        # For diagnostics
-        # state.minkn = float(np.min(state.kn))
-        # state.mintrelax = float(np.min(state.trelax))
-
-        state.n_iter_du = 0
-        state.n_iter_dr = 0
-        state.dt_cum = 0.0
-        state.dr_max_cum = 0.0
-        state.du_max_cum = 0.0
-        state.dt_over_trelax_cum = 0.0
-
-        if config.io.chatter:
-            print("State loaded.")
-
-        return state
+        raise RuntimeError("State.from_dir restart support is not implemented")
 
     @classmethod
     def make_ic_file(cls, config, ic_filepath):
@@ -154,8 +109,8 @@ class State:
 
         Returns
         -------
-        State
-            A new State object initialized with the given configuration.
+        None
+            Writes an unrelaxed profile; from_config relaxes it when loaded.
         """
         from halogtf.io.write import write_profile_snapshot
         
@@ -172,19 +127,21 @@ class State:
         """
         Compute and set characteristic physical quantities based on InitParams.
         """
+        import math
         from halogtf.parameters.char_params import CharParams
         from halogtf.profiles.nfw import fNFW
         from halogtf.parameters.constants import Constants as const
+        from halogtf.util.calc_kp import factors
 
         if self.config.io.chatter:
             print("Computing characteristic parameters for simulation...")
         init    = self.config.init # Access the InitParams object from config
-        sim     = self.config.sim # Access the SimParams object from config
+        scatter = self.config.scatter # Access the ScatterParams object from config
         cosmo   = self.config.cosmo
 
         char = CharParams() # Instantiate CharParams object
 
-        # Ensure double point precision
+        # Ensure double precision
         Mvir  = float(init.Mvir)
         cvir  = float(init.cvir)
 
@@ -198,7 +155,7 @@ class State:
         char.r_s = rvir / cvir
 
         if init.profile != 'abg':
-            char.m_s = Mvir_h / char.fc # Changed from Mvir_h - check this
+            char.m_s = Mvir_h / char.fc # M(<cvir) = m_s * fNFW(cvir).
             
         else:
             from halogtf.profiles.abg import chi
@@ -207,25 +164,42 @@ class State:
             char.r_s *= ( char.fc / char.chi )**(1.0/3.0)
 
         char.rho_s = char.m_s / ( 4.0 * np.pi * char.r_s**3 )
-        char.v0 = float(np.sqrt(const.gee * char.m_s / char.r_s))
-        sigma0 = 4.0 * np.pi * char.r_s**2 / char.m_s # In Mpc^2 / Msun
-        char.sigma0 = sigma0 * float(const.Mpc_to_cm)**2 / float(const.Msun_to_gram) # In cm^2 / g
+        char.v_s = float(np.sqrt(const.gee * char.m_s / char.r_s))
+        char.w_char = float(scatter.w) / char.v_s
 
-        v0_cgs = char.v0 * 1.0e5
+        # Thermal averages over velocity dispersion to scale time and cross section
+        char.v_ref_over_vs = 0.33
+        char.k_l_ref, char.k_s_ref, _, _ = factors(
+            char.v_ref_over_vs**2,
+            char.w_char,
+            scatter.model_id,
+            scatter.smfp_order,
+        )
+        factor = math.sqrt(char.k_l_ref * char.k_s_ref)
+
+        # Original amplitude-based cross-section unit [cm^2/g].
+        sigma_m_s_base = 4.0 * np.pi * char.r_s**2 / char.m_s
+        sigma_m_s_base *= (float(const.Mpc_to_cm)**2 / float(const.Msun_to_gram)) # In cm^2 / g
+        char.sigma_m_s_hardsphere = sigma_m_s_base
+
+        # Velocity-dependent unit
+        char.sigma_m_s = sigma_m_s_base / factor
+        char.sigma_m_0_char = float(scatter.sigma_m_0) / char.sigma_m_s # Cross-section amplitude in characteristic units
+        char.sigma_m_0_char_hardsphere = float(scatter.sigma_m_0) / char.sigma_m_s_hardsphere
+
+        v_s_cgs = char.v_s * 1.0e5
         rho_s_cgs = char.rho_s * float(const.Msun_to_gram) / float(const.Mpc_to_cm)**3
-        char.t0 = 1.0 / (float(sim.a) * float(sim.sigma_m) * v0_cgs * rho_s_cgs)
-        char.sigma_m_char = float(sim.sigma_m) / char.sigma0 # sigma_m in dimensionless form
+        t_s_base = 1.0 / ( float(scatter.a) * float(scatter.sigma_m_0) * v_s_cgs * rho_s_cgs )
+        char.t_s = t_s_base / char.k_l_ref
 
-        return char  # Store the CharParams object in config
+        # Converts a time measured in r_s/v_s into the new simulation units.
+        char.dynamical_time_factor = float(scatter.a) * char.sigma_m_0_char_hardsphere * char.k_l_ref
+        
+        return char
     
     def _setup_grid(self):
         """
         Constructs the radial grid in log-space between rmin and rmax.
-
-        Parameters
-        ----------
-        config : Config
-            The simulation configuration object.
 
         Returns
         -------
@@ -251,7 +225,7 @@ class State:
 
         # Number of log-spaced cells between rmin and rmax.
         nlog = int(np.ceil(log_span / log_q_init))
-        nlog = max(nlog, 1)
+        nlog = max(nlog, 2)
         ngrid = nlog + 1
 
         log_q_actual = log_span / nlog
@@ -277,12 +251,10 @@ class State:
         initial profile defined in config.
 
         Sets the following attributes:
-            - m: Enclosed mass at r[i+1]
+            - m: Enclosed mass at edges r[i], including m[0] = 0
             - rho: Density in each shell (size ngrid)
-            - p: Pressure in each shell
             - v2: Velocity dispersion squared in each shell
-            - kn: Knudsen number in each shell
-            - maxvel: maximum velocity dispersion
+            - kn, mfp: Amplitude-reference transport scales in each shell
             - kn_c: Knudsen number of the core
         """
         from halogtf.profiles.profile_routines import menc, sigr
@@ -298,7 +270,7 @@ class State:
         m = np.zeros_like(r, dtype=np.float64)
         m[1:] = menc(r[1:], self)               # m[i] at shell edges
 
-        ### For Frank ###
+        # Truncated-halo mass relative to the parent NFW virial mass.
         if self.config.init.profile == 'truncated_nfw':
             from halogtf.profiles.nfw import fNFW
             # Calculate Mtot / M200
@@ -308,10 +280,10 @@ class State:
 
         v2 = np.asarray(sigr(r_mid, self), dtype=np.float64)
         rho = 3.0 * ( m[1:] - m[:-1] ) / dr3
-        kn = 1.0 / (self.char.sigma_m_char * np.sqrt(rho * v2))
-        mfp = 1.0 / (self.char.sigma_m_char * rho)
+        kn = 1.0 / (self.char.sigma_m_0_char * np.sqrt(rho * v2))
+        mfp = 1.0 / (self.char.sigma_m_0_char * rho)
 
-        # Apply central smoothing if using regular NFW profile (imode = 1)
+        # Apply central smoothing for the regular NFW profile
         # This helps reduce artificial gradients in innermost cell
         if self.config.init.profile == "nfw":
             r1 = r[1]
@@ -338,14 +310,12 @@ class State:
         self.ltemp      = np.zeros_like(rho, dtype=np.float64)
         calc_ltemp(self.ltemp, v2, r_mid)
         self.mfp        = np.asarray(mfp, dtype=np.float64)
-        # self.Theta  = np.zeros_like(self.rho, dtype=np.float64)
 
-        ### Testing diagnostics ###
-        # self.t_sc   = (r_mid / np.sqrt(v2)).astype(np.float64)
-        # self.t_coll = (1.0 / (rho * np.sqrt(v2) * self.char.sigma_m_char)).astype(np.float64)
-        self.t_cool = np.zeros_like(rho, dtype=np.float64)
-        self.t_dyn  = (1.0 / np.sqrt(rho)).astype(np.float64)
-        # self.lum    = np.zeros_like(r, dtype=np.float64)
+        # No accepted conduction rate is available before the first step.
+        self.t_cool = np.full_like(rho, np.inf, dtype=np.float64)
+        self.t_dyn  = (self.char.dynamical_time_factor / np.sqrt(rho)).astype(np.float64)
+
+        self._update_transport_diagnostics()
 
     def _load_ic(self, ic_filepath):
         """
@@ -366,36 +336,32 @@ class State:
 
         # Check that the grid matches
         r_loaded = np.insert(10**data['log_r'].astype(np.float64), 0, 0.0)
-        if not np.allclose(r_loaded, self.r, rtol=1e-5, atol=1e-8):
-            # for i in range(len(r_loaded)):
-            #     print(r_loaded[i], self.r[i])
-                # print(abs(r_loaded[i]- self.r[i]), 1e-8 + 1e-5*self.r[i], abs(r_loaded[i]- self.r[i]) < 1e-8 + 1e-5*self.r[i])
+        if r_loaded.shape != self.r.shape or not np.allclose(r_loaded, self.r, rtol=1e-5, atol=1e-8):
             warnings.warn("Radial grid in IC file does not match the grid defined by the current configuration.  Using IC file grid.", RuntimeWarning)
-            self.r[:] = r_loaded
-            # raise ValueError("Radial grid in IC file does not match the grid defined by the current configuration.")
+            self.r = r_loaded
+            self.n = r_loaded.size - 1
 
         self.rmid   = 0.5 * (self.r[1:] + self.r[:-1]).astype(np.float64)
         self.m      = np.insert(data['m'].astype(np.float64), 0, 0.0)
+        if self.config.init.profile == "truncated_nfw":
+            self.char.mtot_m200 = float(self.m[-1] / self.char.fc)
         self.rho    = data['rho'].astype(np.float64)
         self.v2     = data['v2'].astype(np.float64)
 
         # Derived quantities
-        self.kn         = np.asarray(1.0 / (self.char.sigma_m_char * np.sqrt(self.rho * self.v2)), dtype=np.float64)
+        self.kn         = np.asarray(1.0 / (self.char.sigma_m_0_char * np.sqrt(self.rho * self.v2)), dtype=np.float64)
         self.drfrac     = np.zeros_like(self.rho, dtype=np.float64)
         self.drfrac[0]  = np.nan
         self.drfrac[1:] = (self.r[2:]/self.r[1:-1] - 1.0) / np.sqrt(self.r[2:]/self.r[1:-1])
         self.ltemp      = np.zeros_like(self.rho, dtype=np.float64)
         calc_ltemp(self.ltemp, self.v2, self.rmid)
-        self.mfp        = np.asarray( 1.0 / (self.char.sigma_m_char * self.rho), dtype=np.float64)
+        self.mfp        = np.asarray( 1.0 / (self.char.sigma_m_0_char * self.rho), dtype=np.float64)
 
-        # self.Theta  = data['Theta'].astype(np.float64)
 
-        ### Testing diagnostics ###
-        # self.t_sc   = (self.rmid / np.sqrt(self.v2)).astype(np.float64)
-        # self.t_coll = (1.0 / (self.rho * np.sqrt(self.v2) * self.char.sigma_m_char)).astype(np.float64)
-        self.t_cool = np.empty_like(self.rho, dtype=np.float64)
-        self.t_dyn  = (1.0 / np.sqrt(self.rho)).astype(np.float64)
-        # self.lum    = np.zeros_like(self.r, dtype=np.float64)
+        self.t_cool = np.full_like(self.rho, np.inf, dtype=np.float64)
+        self.t_dyn  = (self.char.dynamical_time_factor / np.sqrt(self.rho)).astype(np.float64)
+
+        self._update_transport_diagnostics()
 
     def _ensure_virial_equilibrium(self):
         """
@@ -421,22 +387,23 @@ class State:
 
         # Iteratively revirialize to achieve necessary precision
         # Preallocate arrays
-        Np1 = r_new.shape[0]
-        n_int = Np1 - 2
-        a  = np.empty(n_int, dtype=np.float64)
-        b  = np.empty(n_int, dtype=np.float64)
-        c  = np.empty(n_int, dtype=np.float64)
-        y  = np.empty(n_int, dtype=np.float64)
-        x  = np.empty(n_int, dtype=np.float64)
+        Np1     = r_new.shape[0]
+        n_int   = Np1 - 2
+        a       = np.empty(n_int, dtype=np.float64)
+        b       = np.empty(n_int, dtype=np.float64)
+        c       = np.empty(n_int, dtype=np.float64)
+        y       = np.empty(n_int, dtype=np.float64)
+        x       = np.empty(n_int, dtype=np.float64)
+        gam     = np.empty(n_int, dtype=np.float64)
         vol_old = np.empty(Np1 - 1, dtype=np.float64)
 
-        eps_dr = float(self.config.prec.eps_dr)
+        eps_dr = float(self.config.num.eps_dr)
 
         i = 0
         while True:
             i += 1
             status, dr_max_new, he_res = revirialize_w_he_resid(r_new, rho_new, p_new, m,
-                                                                 a, b, c, y, x, vol_old)
+                                                                 a, b, c, y, x, gam, vol_old)
             
             if status == STATUS_SHELL_CROSSING:
                 raise RuntimeError(f"Initial revir iter {i}: Shell crossing!")
@@ -454,24 +421,46 @@ class State:
         self.v2 = v2_new
 
         self.rmid[:]    = 0.5 * (r_new[1:] + r_new[:-1])
-        self.kn[:]      = 1.0 / (self.char.sigma_m_char * np.sqrt(p_new))
+        self._update_transport_diagnostics()
         calc_ltemp(self.ltemp, self.v2, self.rmid)
-        self.mfp[:]     = 1.0 / (self.char.sigma_m_char * self.rho)
+        self.t_dyn[:]   = self.char.dynamical_time_factor / np.sqrt(self.rho)
+        self.drfrac[0] = np.nan
+        self.drfrac[1:] = np.diff(self.r[1:]) / np.sqrt(self.r[1:-1] * self.r[2:])
 
         if chatter:
             print(f"Hydrostatic equilibrium achieved in {i} iterations. Max |dr/r| = {dr_max_new:.2e}.  HE res {he_res}.")
+
+    def _update_transport_diagnostics(self):
+        """Refresh both diagnostic conventions on the current cell grid.
+
+        kn_c remains the amplitude-reference core mean for compatibility.
+        kn_cond_c is the conductivity-effective core mean used by the
+        timestep tolerance boost.
+        """
+        from halogtf.util.calc_runtime import calc_transport_scales
+        from halogtf.util.calc_core import calc_core_r, calc_logmean_within_r
+
+        for name in ('kn', 'mfp', 'kn_cond', 'mfp_cond'):
+            if not hasattr(self, name) or getattr(self, name).size != self.rho.size:
+                setattr(self, name, np.empty_like(self.rho))
+        calc_transport_scales(
+            self.v2, self.rho, float(self.char.sigma_m_0_char_hardsphere),
+            float(self.char.w_char), self.config.scatter.smfp_order, self.config.scatter.model_id,
+            self.kn, self.mfp, self.kn_cond, self.mfp_cond,
+        )
+        r_c = calc_core_r(self.r, self.rmid, self.rho)
+        self.kn_c = calc_logmean_within_r(self.r, self.m, self.kn, r_c)
+        self.kn_cond_c = calc_logmean_within_r(self.r, self.m, self.kn_cond, r_c)
 
     def reset(self, ic_filepath=None):
         """
         Resets initial state
         """
-        from halogtf.util.calc_core import calc_core_r, calc_logmean_within_r
-
         config = self.config
 
         self.r = self._setup_grid()
         if ic_filepath is not None:
-            # Check if filpath exists
+            # Check if filepath exists
             if not Path(ic_filepath).is_file():
                 print(f"IC file {ic_filepath} not found. Creating IC file at that location...")
                 self.make_ic_file(config, ic_filepath=ic_filepath)
@@ -486,10 +475,8 @@ class State:
         self.dt = 1e-6                      # Initial time step (will be updated adaptively)
         self.du_max = 0.0                   # Max du of most recent step (used for adaptive time stepping)
 
-        # For diagnostics
-        r_c = calc_core_r(self.r, self.rmid, self.rho)
-        self.kn_c = calc_logmean_within_r(self.r, self.m, self.kn, r_c)
-        # self.minkn = float(np.min(self.kn))
+        # Recompute both conventions after initialization and relaxation.
+        self._update_transport_diagnostics()
 
         self.n_iter_du          = 0
         self.n_iter_dr          = 0
@@ -497,6 +484,10 @@ class State:
         self.dt_cum             = 0.0
         self.dr_max_cum         = 0.0
         self.du_max_cum         = 0.0
+        self.du_limit_cum = 0.0
+        self.log_steps = 0
+        self.n_split = 0
+        self.n_merge = 0
 
         if config.io.chatter:
             print("State initialized.")
@@ -505,7 +496,8 @@ class State:
         """
         Run the simulation until a halting criterion is met.
         User can set halting criteria to run for a specified duration.
-        These are overridden by the halting criteria in self.config.
+        The first satisfied user or configuration criterion stops the run.
+        The configured density limit is checked only after t > 50 (in t_s).
 
         Arguments 
         ---------
@@ -514,7 +506,7 @@ class State:
         stoptime : float, optional
             Amount of simulation time by which to advance the simulation
         rho_c: float, optional
-            Max central denisty value to advance until
+            Maximum innermost-cell density (rho[0]/rho_s) to advance until
         """
         from halogtf.evolve.integrator import run_until_stop
         from halogtf.io.write import write_log_entry, write_profile_snapshot, write_time_evolution
@@ -550,45 +542,45 @@ class State:
         
     def get_phys(self):
         """
-        Method to print characteristic quantities in physical units
+        Return a dictionary of characteristic quantities in physical units
         """
-        from halogtf.profiles.profile_routines import menc
         from halogtf.parameters.constants import Constants as const
 
         char = self.char
         init = self.config.init
         cosmo = self.config.cosmo
 
-        Mtot = menc(self.config.grid.rmax, self, chatter=False) * char.m_s
+        Mtot = self.m[-1] * char.m_s
         rvir = 0.169 * (init.Mvir / 1.0e12)**(1/3)
         rvir *= (cosmo.Delta_vir / 178.0)**(-1.0/3.0)
         rvir *= (cosmo.xH() / (100 * cosmo.xhubble))**(-2/3)
         rvir /= cosmo.xhubble
-        vvir = np.sqrt(cosmo.gee * init.Mvir / cosmo.xhubble / rvir)
+        vvir = np.sqrt(const.gee * init.Mvir / cosmo.xhubble / rvir)
 
         params_dict = {
             'log[Mvir/Msun]'            : np.log10(init.Mvir / cosmo.xhubble),
             'log[Mtot/Msun]'            : np.log10(Mtot),
             'Vvir [km/s]'               : vvir,
-            'v_0 [km/s]'                : char.v0,
+            'v_s [km/s]'                : char.v_s,
             'log[rho_s/(Msun/kpc^3)]'   : np.log10(char.rho_s * 1.0e-9),
             'r_s [kpc]'                 : char.r_s * 1.0e3,
-            't_0 [Gyr]'                 : char.t0 * const.sec_to_Gyr
+            't_s [Gyr]'                 : char.t_s * const.sec_to_Gyr
         }
 
         return params_dict
 
     def plot_time_evolution(self, **kwargs):
         """
-        Plot any time-evolution quantity vs. time for for the simulation represented by
+        Plot any time-evolution quantity vs. time for the simulation represented by
         the State object
 
         Arguments
         ---------
         quantity : str, optional
             Key from the time_evolution.txt file to plot on the y-axis.
-            Default is 'rho_c'.
-            Options are 'rho0', 'v_max', 'kn_min'
+            Default is 'rho0'.
+            Any time_evolution.txt column, including rho0, kn_cond_c,
+            x_c/x_m2, K_L_c/K_S_c and K_L_m2/K_S_m2.
         ylabel : str, optional
             Custom y-axis label. Defaults to quantity.
         logy : bool, optional
@@ -602,7 +594,7 @@ class State:
         """
         from halogtf.plot.time_evolution import plot_time_evolution
 
-        plot_time_evolution(self, **kwargs)
+        return plot_time_evolution(self, **kwargs)
 
     def plot_snapshots(self, **kwargs):
         """
@@ -614,7 +606,8 @@ class State:
         snapshots : int or list of int, optional
             Snapshot indices to plot, default is the current state
         profiles : str or list of str, optional
-            Profiles to plot.  Options are 'rho', 'm', 'v2', 'p', 'kn'
+            Profiles from plot.snapshot.VALID_PROFILES, including rho, v2,
+            kn_cond, mfp_cond, x, K_L, and K_S.
         filepath : str, optional
             If provided, save the plot to this file.
         show : bool, optional
@@ -625,19 +618,25 @@ class State:
         from halogtf.plot.snapshot import plot_snapshots
 
         snapshots = kwargs.pop('snapshots', -1)
-        plot_snapshots(self, snapshots=snapshots, **kwargs)
+        return plot_snapshots(self, snapshots=snapshots, **kwargs)
         
     def make_movie(self, **kwargs):
         """
-        Method to animate up to three profiles for the simulation represented by
+        Animate profiles with the deluxe renderer for the simulation represented by
         the State object
 
         Arguments
         ---------
+        parallel : bool, optional
+            Render in parallel by default; False uses serial rendering.
+        insets : False, str, list, or None, optional
+            False disables all insets; None uses rho0 in the first panel.
+            Lists specify a history column or None for each panel.
         filepath : str, optional
             Save the plot to this file.  Defaults to '/base_dir/ModelXXXXX/movie_{profiles}.mp4'
         profiles : str or list of str, optional
-            Profiles to plot.  Options are 'rho', 'm', 'v2', 'p', 'kn'
+            Profiles from plot.snapshot.VALID_PROFILES, including rho, v2,
+            kn_cond, mfp_cond, x, K_L, and K_S.
         grid : bool, optional
             If True, shows grid on axes
         fps : int, optional
@@ -655,19 +654,25 @@ class State:
     def resize_state_arrays(self):
         n = self.n
 
-        self.rmid   = np.empty(n,   dtype=np.float64)
-        self.kn     = np.empty(n,   dtype=np.float64)
-        self.ltemp  = np.empty(n,   dtype=np.float64)
-        self.mfp    = np.empty(n,   dtype=np.float64)
-        # self.t_sc   = np.empty(n,   dtype=np.float64)
-        # self.t_coll = np.empty(n,   dtype=np.float64)
-        self.t_dyn  = np.empty(n,   dtype=np.float64)
-        self.drfrac = np.empty(n,   dtype=np.float64)
-        # self.lum    = np.empty(n+1, dtype=np.float64)
-        self.t_cool = np.empty(n,   dtype=np.float64)
+        self.rmid       = np.empty(n,   dtype=np.float64)
+        self.kn         = np.empty(n,   dtype=np.float64)
+        self.kn_cond    = np.empty(n, dtype=np.float64)
+        self.mfp_cond   = np.empty(n, dtype=np.float64)
+        self.ltemp      = np.empty(n,   dtype=np.float64)
+        self.mfp        = np.empty(n,   dtype=np.float64)
+        self.t_dyn      = np.empty(n,   dtype=np.float64)
+        self.drfrac     = np.empty(n,   dtype=np.float64)
+        self.t_cool     = np.full(n, np.inf, dtype=np.float64)
+
+        self.rmid[:] = 0.5 * (self.r[1:] + self.r[:-1])
+        self._update_transport_diagnostics()
+        from halogtf.util.calc_runtime import calc_ltemp
+        calc_ltemp(self.ltemp, self.v2, self.rmid)
+        self.drfrac[0] = np.nan
+        self.drfrac[1:] = np.diff(self.r[1:]) / np.sqrt(self.r[1:-1] * self.r[2:])
+        self.t_dyn[:] = self.char.dynamical_time_factor / np.sqrt(self.rho)
 
     def __repr__(self):
         # Copy the __dict__ and omit the 'config' key
         filtered = {k: v for k, v in self.__dict__.items() if k != "config"}
         return f"{self.__class__.__name__}(\n{pprint.pformat(filtered, indent=2)}\n)"
-

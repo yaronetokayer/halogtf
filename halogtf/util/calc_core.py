@@ -144,76 +144,6 @@ def calc_r_mn(r, rmid, rho, n):
 
     return r[N]
 
-@njit(float64(float64[:], float64[:], float64[:],), fastmath=True, cache=True,)
-def calc_r_smfp(r, rmid, kn):
-    """
-    Compute the SMFP radius, defined as the first radius where the
-    Knudsen number crosses unity:
-
-        Kn(r_smfp) = 1.
-
-    The crossing radius is estimated by assuming Kn is a local power
-    law between adjacent shell midpoint radii, equivalent to linear
-    interpolation in log(Kn) versus log(r).
-
-    Parameters
-    ----------
-    r : ndarray, shape (N+1,)
-        Shell-edge radii. Used to return the outermost edge if no
-        crossing is found.
-
-    rmid : ndarray, shape (N,)
-        Shell midpoint radii.
-
-    kn : ndarray, shape (N,)
-        Knudsen number evaluated at the shell midpoints. Values must
-        be strictly positive.
-
-    Returns
-    -------
-    r_smfp : float
-        First radius where Kn crosses 1. If no crossing is found,
-        the outermost shell-edge radius is returned.
-    """
-    N = rmid.shape[0]
-
-    if N < 2:
-        return r[N]
-
-    log_r_prev = math.log(rmid[0])
-    log_kn_prev = math.log(kn[0])
-
-    for j in range(1, N):
-        kn_prev = kn[j - 1]
-        kn_cur = kn[j]
-
-        # Find the first crossing of Kn = 1 in either direction.
-        if (kn_prev - 1.0) * (kn_cur - 1.0) <= 0.0:
-            log_r_cur = math.log(rmid[j])
-            log_kn_cur = math.log(kn_cur)
-
-            dlog_kn = log_kn_cur - log_kn_prev
-
-            if dlog_kn != 0.0:
-                # log(Kn_target) = log(1) = 0.
-                log_r_smfp = (
-                    log_r_prev
-                    - log_kn_prev
-                    * (log_r_cur - log_r_prev)
-                    / dlog_kn
-                )
-
-                return math.exp(log_r_smfp)
-
-            # Both points have the same Kn value. This can only define
-            # a crossing unambiguously when both values equal one.
-            return rmid[j - 1]
-
-        log_r_prev = math.log(rmid[j])
-        log_kn_prev = math.log(kn_cur)
-
-    return r[N]
-
 ### CORE AVERAGES
 
 @njit(float64(float64[:], float64[:], float64[:], float64,), fastmath=True, cache=True,)
@@ -357,7 +287,8 @@ def calc_mean_within_r(r, m, q, r_max):
 def calc_core_r_rho_m_v2(r, rmid, rho, v2, m):
     """
     Compute core properties using the reusable interpolation and
-    averaging functions.
+    averaging functions. Returns r_c, mean rho_c, m_c, mean v2_c, and
+    r_c/sqrt(v2_c). The last quantity is in r_s/v_s, not t_s units.
     """
     r_c = calc_core_r(r, rmid, rho)
 
@@ -428,55 +359,6 @@ def calc_rmn_rho_m_v2(r, rmid, rho, v2, m, n):
         rho_mn = rho[0]
 
     return r_mn, rho_mn, m_mn, v2_mn
-
-@njit(types.Tuple((float64, float64, float64, float64,))(float64[:], float64[:], float64[:], float64[:], float64[:], float64[:],), fastmath=True, cache=True,)
-def calc_smfp_r_rho_m_v2(r, rmid, kn, rho, v2, m):
-    """
-    Compute the SMFP radius, average density inside it, enclosed mass,
-    and mass-weighted mean v2.
-
-    The SMFP radius is defined by
-
-        Kn(r_smfp) = 1.
-
-    Parameters
-    ----------
-    r : ndarray, shape (N+1,)
-        Shell-edge radii.
-    rmid : ndarray, shape (N,)
-        Shell midpoint radii.
-    kn : ndarray, shape (N,)
-        Knudsen number evaluated at shell midpoints.
-    rho : ndarray, shape (N,)
-        Density evaluated at shell midpoints.
-    v2 : ndarray, shape (N,)
-        Shell square of the 1D velocity dispersion.
-    m : ndarray, shape (N+1,)
-        Enclosed mass at shell edges.
-
-    Returns
-    -------
-    r_smfp : float
-        First radius where Kn crosses unity.
-    rho_smfp : float
-        Average density inside r_smfp.
-    m_smfp : float
-        Enclosed mass at r_smfp.
-    v2_smfp : float
-        Mass-weighted arithmetic mean of v2 inside r_smfp.
-    """
-    r_smfp = calc_r_smfp(r, rmid, kn)
-
-    m_smfp = interp_pl_to_r(r, m, r_smfp)
-
-    v2_smfp = calc_mean_within_r(r, m, v2, r_smfp,)
-
-    if r_smfp > 0.0:
-        rho_smfp = 3.0 * m_smfp / (r_smfp * r_smfp * r_smfp)
-    else:
-        rho_smfp = rho[0]
-
-    return r_smfp, rho_smfp, m_smfp, v2_smfp
 
 @njit(types.Tuple((float64, float64, float64, float64))(float64[:], float64[:], float64[:], float64[:], float64[:], float64[:]), fastmath=True, cache=True)
 def calc_mintheta_r_rho_m_v2(r, rmid, rho, v2, m, Theta):
