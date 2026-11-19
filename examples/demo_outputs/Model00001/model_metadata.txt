@@ -1,0 +1,55 @@
+Model 00001 Metadata
+========================================
+
+_init:
+    _Mvir: 3000000000.0
+    _alpha: 4.0
+    _beta: 4.0
+    _cvir: 20.0
+    _gamma: 0.1
+    profile: abg
+cosmo:
+    _Delta_vir: 200.0
+    _Omega_m: 0.3
+    _xhubble: 0.7
+    _z: 0.0
+grid:
+    _drfrac_init: 0.05
+    _drfrac_max: 0.1
+    _drfrac_min: 0.01
+    _grid_splitting: True
+    _rmax: 200.0
+    _rmin: 0.01
+io:
+    _base_dir: /Users/yaronetokayer/YaleDrive/Research/Codes/halogtf/examples/demo_outputs
+    _chatter: True
+    _drho_prof: 0.1
+    _drho_tevol: 0.01
+    _model_no: 1
+    _nlog: 100000
+    _nupdate: 1000
+    _overwrite: True
+    _profiles: True
+    _t_evol: True
+num:
+    _du_boost: 100.0
+    _eps_dr: 1e-12
+    _eps_du: 0.0001
+    _epsabs: 1e-06
+    _epsrel: 1e-06
+    _kn_threshold: 0.01
+    _kn_width: 1.0
+    _max_iter_dr: 100
+    _max_iter_du: 10
+scatter:
+    _a: 2.256758
+    _alph: 0.57
+    _b: 1.3847
+    _c: 0.86
+    _model: rutherford
+    _sigma_m_0: 10.0
+    _smfp_order: 2
+    _w: 100.0
+stop:
+    _rho0_halt: 100000.0
+    _t_halt: 1000.0
