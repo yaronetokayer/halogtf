@@ -2,11 +2,26 @@
 
 **HaloGTF** is a modern Python implementation of a 1D Lagrangian gravothermal fluid code. It simulates the dynamical evolution of self-interacting dark matter halos using the fluid approximation, based on a Fortran code originally developed by Prof. Frank van den Bosch (Yale University).
 
-See [the runnable example notebook](examples/demo.ipynb) and the [output and units reference](docs/output-reference.md).
+See [the runnable example notebook](examples/demo.ipynb), the
+[scattering conventions](docs/scattering.md), and the
+[output and units reference](docs/output-reference.md).
 
 Contact yarone.tokayer-at-yale.edu with any questions/comments.
 
 ---
+
+## Scattering choices
+
+HaloGTF supports elastic hard-sphere scattering (either model with
+`w=float("inf")`), screened Rutherford scattering (`model="rutherford"`),
+and Møller scattering (`model="moller"`). Both velocity-dependent models
+are normalized so that their low-speed limit corresponds to the same
+`sigma_m_0` in cm²/g as the hard-sphere model, with no additional scaling
+factor for the user to apply.
+
+The [scattering reference](docs/scattering.md) explains the prescriptions,
+the meaning of `sigma_m_0` and `w`, the viscosity-cross-section convention,
+and the SMFP normalization.
 
 ## Overview
 
@@ -139,18 +154,10 @@ config = gtf.Config(
 )
 ```
 
-`scatter.model` accepts `"rutherford"` (screened Rutherford/Yukawa-like) or
-`"moller"`; the code converts the name to an internal integer. `sigma_m_0`
-is the physical low-speed isotropic-equivalent cross section per mass in
-cm²/g, and `w` is in km/s. Set `w=float("inf")` for constant hard-sphere
-scattering with that same amplitude; either model then gives identical
-transport factors. The moment arguments use the **single-particle 1D velocity
-dispersion** divided by `w`; do not insert an extra factor of sqrt(2).
-
-The default `smfp_order=2` uses the second-order moment combination normalized
-by 45/44, so its constant-scattering limit is one. Thus `b=1.3847` retains
-its hard-sphere meaning; do not apply another 44/45 correction to the cross
-section or `b`. First order (`smfp_order=1`) is also supported.
+`sigma_m_0` is in cm²/g and `w` is in km/s. See the
+[scattering reference](docs/scattering.md) for model choices, low-speed
+limits, and normalization conventions. The default `smfp_order=2` uses the
+normalized second-order transport factor; `smfp_order=1` is also supported.
 
 The current calibration defaults are `alph=0.57` and `c=0.86` (`c` is the
 coefficient called beta in our calibration discussion). These are the adopted
