@@ -168,7 +168,7 @@ class State:
         char.w_char = float(scatter.w) / char.v_s
 
         # Thermal averages over velocity dispersion to scale time and cross section
-        char.v_ref_over_vs = 0.33
+        char.v_ref_over_vs = 0.3
         char.k_l_ref, char.k_s_ref, _, _ = factors(
             char.v_ref_over_vs**2,
             char.w_char,

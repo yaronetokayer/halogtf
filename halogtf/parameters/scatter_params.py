@@ -40,10 +40,10 @@ class ScatterParams:
             sigma_m_0   : float = 10.0,
             w           : float = float("inf"),
             smfp_order  : int = 2,
-            alph        : float = 0.57,
-            a           : float = 2.256758,
-            b           : float = 1.3847,
-            c           : float = 0.86
+            alph        : float = 0.552,
+            a           : float = 4.0 / math.sqrt(math.pi),
+            b           : float = 25.0 * math.sqrt(math.pi) / 32.0,
+            c           : float = 0.842
     ):
         self._model = None
         self._sigma_m_0 = None

@@ -12,6 +12,8 @@ import numpy as np
 from numba import njit
 from halogtf.util.shared_globals import MODEL_RUTHERFORD, MODEL_MOLLER
 
+RUTHERFORD_K5_FRACTION = 0.43647
+
 # Rows correspond to p = 3, 5, 7, 9; columns contain p0, p1, p2, p3.
 COEFF_MOLLER = np.array([
     [8.0,  0.0339848, 0.37, 0.63],
@@ -136,7 +138,8 @@ def factors(T, what, model_id, order=2):
     Returns
     -------
     k_lmfp : float
-        LMFP transport factor K5.
+        LMFP transport factor. Second-order Rutherford uses a K5-K7 mixture.
+        All other prescriptions use K5.
     k_smfp : float
         SMFP transport factor for the selected order.
     slope_lmfp : float
@@ -187,6 +190,15 @@ def factors(T, what, model_id, order=2):
     )
     k_smfp = k5 * (numerator / denominator) * (45 / 44)
     slope_smfp = slope_k5 + dnumerator / numerator - ddenominator / denominator
+
+    if model_id == MODEL_RUTHERFORD:
+        # Callibration of LMFP factor for Rutherford scattering
+        f5 = RUTHERFORD_K5_FRACTION
+        k7_weight = (1.0 - f5) * ratio_k7
+        mix_over_k5 = f5 + k7_weight
+        k_lmfp = k5 * mix_over_k5
+        slope_lmfp = (f5 * slope_k5 + k7_weight * slope_k7) / mix_over_k5
+        return k_lmfp, k_smfp, slope_lmfp, slope_smfp
 
     return k5, k_smfp, slope_k5, slope_smfp
 
