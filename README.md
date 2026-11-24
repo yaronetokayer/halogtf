@@ -147,7 +147,7 @@ Set these parameters **before** constructing the state:
 ```python
 config = gtf.Config(
     scatter={"model": "rutherford", "sigma_m_0": 10.0, "w": 50.0,
-             "smfp_order": 2, "alph": 0.57, "c": 0.86},
+             "smfp_order": 2, "alph": 0.551, "beta": 0.842},
     num={"eps_du": 1e-4},
     stop={"t_halt": 1000.0, "rho0_halt": 1e5},
     io={"base_dir": "./sims", "overwrite": False},
@@ -159,7 +159,7 @@ config = gtf.Config(
 limits, and normalization conventions. The default `smfp_order=2` uses the
 normalized second-order transport factor; `smfp_order=1` is also supported.
 
-The current calibration defaults are `alph=0.57` and `c=0.86` (`c` is the
+The current calibration defaults are `alph=0.552` and `c=0.842` (`c` is the
 coefficient called beta in our calibration discussion). These are the adopted
 Rutherford, second-order calibration, based on mean-core-density arrival
 times at 10^2.6. They are not a separately established calibration for Møller
@@ -168,7 +168,7 @@ explicitly with `alph=0.5, c=0.9`; it is not automatically imposed at large `w`.
 The production implementation evaluates transport moments locally as the
 halo evolves.
 
-The common reference dispersion is fixed at `0.33*v_s` for both transport
+The common reference dispersion is fixed at `0.30*v_s` for both transport
 moments. With `F = sqrt(K_L_ref*K_S_ref)`, the dimensionless cross section is
 `hat_sigma_eff = sigma_m_0*rho_s*r_s*F` (using consistent physical units), and
 `t_s = 1/(a*sigma_m_0*rho_s*v_s*K_L_ref)`. Consequently saved `time` is

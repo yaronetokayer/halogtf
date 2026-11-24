@@ -216,7 +216,7 @@ def conductivity(T, rho, sigmahat, what, model_id, k_l_ref, k_s_ref, alph, a, b,
     Compute the temperature-flux coefficient and its logarithmic slope.
 
         S = (a / b) * sigmahat^2 * k_smfp
-        L = 1 / (c * rho * T * k_lmfp)
+        L = 1 / (beta * rho * T * k_lmfp)
         D = (S^alph + L^alph)^(1 / alph)
         k = sqrt(T) / D
 

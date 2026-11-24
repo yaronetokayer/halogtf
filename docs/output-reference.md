@@ -25,7 +25,7 @@ is `3*m/r**3`, with no extra 4*pi. Pressure is `rho*v2` in units of
 `rho_s*v_s**2`; specific internal energy is `1.5*v2` in units of `v_s**2`.
 
 Let `hat_sigma_0 = sigma_m_0*rho_s*r_s`, with physical factors converted to
-consistent units. The common reference 1D dispersion is `v_ref = 0.33*v_s`.
+consistent units. The common reference 1D dispersion is `v_ref = 0.30*v_s`.
 `K_L_ref` and `K_S_ref` are the selected model/order's moments there, and
 `F = sqrt(K_L_ref*K_S_ref)`. The code uses:
 
@@ -39,8 +39,8 @@ consistent units. The common reference 1D dispersion is `v_ref = 0.33*v_s`.
 The unit-defining moments stay fixed during a run. Local moments still evolve
 with temperature; transport uses `K_L/K_L_ref` and `K_S/K_S_ref`. The saved
 moment columns contain the local factors themselves, **not** these ratios.
-`K_L = K5`. First-order `K_S = K5`; second-order `K_S` is the combination of
-K3, K5, K7 and K9 returned by `factors`, normalized by 45/44 to equal one at
+For Rutherford scatter, `K_L` is a combination of K5 and K7; otherwise `K_L = K5`. First-order `K_S = K5`; second-order `K_S` is the combination of
+K5, K7 and K9 returned by `factors`, normalized by 45/44 to equal one at
 constant scattering. Both scattering models tend to hard-sphere scattering
 with amplitude `sigma_m_0` as `w` tends to infinity. No additional 44/45 or
 sqrt(2) conversion is needed.
@@ -153,12 +153,12 @@ that outer edge, and the outermost boundary entries are NaN.
 The `kn`/`mfp` columns use the low-speed amplitude, without velocity
 averaging. The conductivity-effective columns combine the two transport
 moments; they are not literal collision mean free paths. In particular,
-`k_S/k_L = b/(a*c)*kn_cond**2` at the same location.
+`k_S/k_L = b/(a*beta)*kn_cond**2` at the same location.
 
 The `k_*` columns are dimensionless **radial flux coefficients**, including
 the factor `1.5*r**2`, rather than dimensional material conductivities.
 Writing `T=v2`, `L=K_L/K_L_ref` and `S=K_S/K_S_ref`, they are
-`k_L = 1.5*r**2*sqrt(T)*c*rho*T*L` and
+`k_L = 1.5*r**2*sqrt(T)*beta*rho*T*L` and
 `k_S = 1.5*r**2*sqrt(T)*b/(a*hat_sigma_eff**2*S)`.
 The total is `(k_L**(-alph)+k_S**(-alph))**(-1/alph)`.
 Faces use arithmetic-mean neighboring temperatures and the solver's
@@ -223,7 +223,7 @@ run-endpoint profiles are written even when `io.profiles=False`.
 `char_params.txt` records characteristic scales and reference factors by name:
 `r_s`, `m_s`, `rho_s`, `v_s`, `t_s`, the two cross-section scales and amplitudes
 listed above, `w_char=w/v_s`, `k_l_ref`, `k_s_ref`,
-`v_ref_over_vs=0.33`, and `dynamical_time_factor`. It also contains `fc`
+`v_ref_over_vs=0.30`, and `dynamical_time_factor`. It also contains `fc`
 (the NFW mass normalization), `chi` (the ABG mass normalization, when used),
 and `mtot_m200` (truncated-NFW total/virial mass ratio, when available).
 Unavailable values are NaN. Long names in this file's fixed-width header may

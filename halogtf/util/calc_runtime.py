@@ -34,7 +34,7 @@ def calc_transport_scales(v2, rho, sigma_m_0, w_char, smfp_order, model_id, kn, 
         For finite w these are not velocity-averaged collision diagnostics.
     kn_cond, mfp_cond : ndarray, shape (N,)
         Output effective conductivity diagnostics: reference values divided
-        by sqrt(K_L * K_S). Then kappa_S / kappa_L = b/(a*c) * kn_cond^2.
+        by sqrt(K_L * K_S). Then kappa_S / kappa_L = b/(a*beta) * kn_cond^2.
         mfp_cond = H * kn_cond with H = sqrt(v2/rho), in units of r_s.
         This effective length is not the literal mean distance between
         collisions, which requires a separately defined collision-rate average.
@@ -103,7 +103,7 @@ def calc_kappa_cell(v2, rho, rmid, a_param, b_param, beta, sigma_m, alph, w_char
     """
     Compute the cell-centered LMFP, SMFP, and interpolated conductivities, shape (N,)
 
-        kappa_LMFP = (3/2) * v * r^2 * (c * rho * v^2 * K_L)
+        kappa_LMFP = (3/2) * v * r^2 * (beta * rho * v^2 * K_L)
 
         kappa_SMFP = (3/2) * v * r^2 * b / (a * sigma_m^2 * K_S)
 
@@ -193,7 +193,7 @@ def calc_kappa_edge(v2, rho, r, a_param, b_param, beta, sigma_m, alph, w_char, m
     The last entry is NaN: the imposed outer zero flux does not define a
     boundary conductivity. The central edge is not included.
 
-        kappa_LMFP = (3/2) * v * r^2 * (c * rho * v^2 * K_L)
+        kappa_LMFP = (3/2) * v * r^2 * (beta * rho * v^2 * K_L)
 
         kappa_SMFP = (3/2) * v * r^2 * b / (a * sigma_m^2 * K_S)
 
@@ -277,7 +277,7 @@ def calc_kappa_edge(v2, rho, r, a_param, b_param, beta, sigma_m, alph, w_char, m
     return k_l, k_s, k
 
 @njit(float64(float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64, float64, float64, float64, float64, float64,), cache=True, fastmath=True)
-def calc_core_lum_dt(r, rmid, rho, v2, m, alpha, a, b, c, sigma_m, eps,):
+def calc_core_lum_dt(r, rmid, rho, v2, m, alpha, a, b, beta, sigma_m, eps,):
     """
     Legacy constant-scattering estimate of a core-energy-loss timestep.
 
@@ -347,7 +347,7 @@ def calc_core_lum_dt(r, rmid, rho, v2, m, alpha, a, b, c, sigma_m, eps,):
 
     # Compute 1/kappa
     smfp_term = (a / b) * sigma_m * sigma_m
-    lmfp_term = (1.0 / c) / rho_int / v2_int
+    lmfp_term = (1.0 / beta) / rho_int / v2_int
 
     if smfp_term >= lmfp_term:
         scale = smfp_term
