@@ -230,10 +230,10 @@ def write_profile_snapshot(state, initialize=False, ic_filename=None):
     # Transport factors at cell temperatures; not collision cross sections.
     k_l_factor, k_s_factor = moments[:, 0], moments[:, 1]
     scatter = state.config.scatter
-    a = float(scatter.a); b = float(scatter.b); c = float(scatter.c); sigma_m_0 = float(state.char.sigma_m_0_char); alph = float(scatter.alph);
-    k_lc, k_sc, k_totc = calc_kappa_cell(state.v2, state.rho, state.rmid, a, b, c, sigma_m_0, alph, float(state.char.w_char), scatter.model_id, state.char.k_l_ref, state.char.k_s_ref, scatter.smfp_order,)
+    a = float(scatter.a); b = float(scatter.b); beta = float(scatter.beta); sigma_m_0 = float(state.char.sigma_m_0_char); alph = float(scatter.alph);
+    k_lc, k_sc, k_totc = calc_kappa_cell(state.v2, state.rho, state.rmid, a, b, beta, sigma_m_0, alph, float(state.char.w_char), scatter.model_id, state.char.k_l_ref, state.char.k_s_ref, scatter.smfp_order,)
     krat_c = k_sc / k_lc
-    k_le, k_se, k_tote = calc_kappa_edge(state.v2, state.rho, state.r, a, b, c, sigma_m_0, alph, float(state.char.w_char), scatter.model_id, state.char.k_l_ref, state.char.k_s_ref, scatter.smfp_order,)
+    k_le, k_se, k_tote = calc_kappa_edge(state.v2, state.rho, state.r, a, b, beta, sigma_m_0, alph, float(state.char.w_char), scatter.model_id, state.char.k_l_ref, state.char.k_s_ref, scatter.smfp_order,)
     krat_e = k_se / k_le
 
     with open(filename, "w") as f:

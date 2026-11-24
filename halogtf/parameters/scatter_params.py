@@ -31,7 +31,7 @@ class ScatterParams:
         With normalized second order, b remains the constant-limit
         conductivity coefficient; the raw second-order 45/44 enhancement
         is not additionally applied. Must be positive.
-    c : float
+    beta : float
         Model parameter 'c'. Sets normalization of LMFP conduction scaling. Must be positive.
     """
     def __init__(
@@ -43,7 +43,7 @@ class ScatterParams:
             alph        : float = 0.552,
             a           : float = 4.0 / math.sqrt(math.pi),
             b           : float = 25.0 * math.sqrt(math.pi) / 32.0,
-            c           : float = 0.842
+            beta        : float = 0.842
     ):
         self._model = None
         self._sigma_m_0 = None
@@ -52,7 +52,7 @@ class ScatterParams:
         self._alph = None
         self._a = None
         self._b = None
-        self._c = None
+        self._beta = None
 
         self.model = model
         self.sigma_m_0 = sigma_m_0
@@ -61,7 +61,7 @@ class ScatterParams:
         self.alph = alph
         self.a = a
         self.b = b
-        self.c = c
+        self.beta = beta
 
     @property
     def model(self):
@@ -140,14 +140,14 @@ class ScatterParams:
         self._b = float(value)
 
     @property
-    def c(self):
-        return self._c
+    def beta(self):
+        return self._beta
 
-    @c.setter
-    def c(self, value):
+    @beta.setter
+    def beta(self, value):
         if isinstance(value, bool) or not math.isfinite(value) or value <= 0:
-            raise ValueError("c must be positive")
-        self._c = float(value)
+            raise ValueError("beta must be positive")
+        self._beta = float(value)
 
     def __repr__(self):
         attrs = [

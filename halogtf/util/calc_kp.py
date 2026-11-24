@@ -211,7 +211,7 @@ def relative_factors(T, what, model_id, order, k_l_ref, k_s_ref):
     return kl / k_l_ref, ks / k_s_ref, slope_l, slope_s
 
 @njit(fastmath={'reassoc', 'nsz', 'contract', 'arcp'}, cache=True)
-def conductivity(T, rho, sigmahat, what, model_id, k_l_ref, k_s_ref, alph, a, b, c, order=2):
+def conductivity(T, rho, sigmahat, what, model_id, k_l_ref, k_s_ref, alph, a, b, beta, order=2):
     """
     Compute the temperature-flux coefficient and its logarithmic slope.
 
@@ -242,7 +242,7 @@ def conductivity(T, rho, sigmahat, what, model_id, k_l_ref, k_s_ref, alph, a, b,
         Positive collision-rate coefficient.
     b : float
         Positive normalization coefficient for SMFP conductivity.
-    c : float
+    beta : float
         Positive normalization coefficient for LMFP conductivity.
     order : int, optional
         SMFP approximation order, either 1 or 2. Defaults to 2.
@@ -259,7 +259,7 @@ def conductivity(T, rho, sigmahat, what, model_id, k_l_ref, k_s_ref, alph, a, b,
     """
     k_lmfp, k_smfp, slope_lmfp, slope_smfp = relative_factors(T, what, model_id, order, k_l_ref, k_s_ref)
     log_smfp = math.log(a / b) + 2 * math.log(sigmahat) + math.log(k_smfp)
-    log_lmfp = -math.log(c * rho * T * k_lmfp)
+    log_lmfp = -math.log(beta * rho * T * k_lmfp)
 
     # Resistance weights and interpolated denominator, evaluated in log space.
     z = alph * (log_smfp - log_lmfp)

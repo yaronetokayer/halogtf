@@ -99,7 +99,7 @@ def calc_ltemp(ltemp, v2, rmid):
     ltemp[n - 1] = v2[n - 1] * abs(rmid[n - 1] - rmid[n - 2]) / gradient if gradient > 0 else np.inf
 
 @njit(types.Tuple((float64[::1], float64[::1], float64[::1],))(float64[::1], float64[::1], float64[::1], float64, float64, float64, float64, float64, float64, types.int64, float64, float64, types.int64), cache=True)
-def calc_kappa_cell(v2, rho, rmid, a_param, b_param, c_param, sigma_m, alph, w_char, model_id, k_l_ref, k_s_ref, smfp_order,):
+def calc_kappa_cell(v2, rho, rmid, a_param, b_param, beta, sigma_m, alph, w_char, model_id, k_l_ref, k_s_ref, smfp_order,):
     """
     Compute the cell-centered LMFP, SMFP, and interpolated conductivities, shape (N,)
 
@@ -124,8 +124,8 @@ def calc_kappa_cell(v2, rho, rmid, a_param, b_param, c_param, sigma_m, alph, w_c
         Coefficient a in the SMFP conductivity.
     b_param : float
         Coefficient b in the SMFP conductivity.
-    c_param : float
-        Coefficient c in the LMFP conductivity.
+    beta : float
+        Coefficient beta in the LMFP conductivity.
     sigma_m : float
         Cross-section amplitude per unit mass in characteristic units.
     alph : float
@@ -159,7 +159,7 @@ def calc_kappa_cell(v2, rho, rmid, a_param, b_param, c_param, sigma_m, alph, w_c
     smfp_fac = 1.5 * b_param / (
         a_param * sigma_m * sigma_m
     )
-    lmfp_fac = 1.5 * c_param
+    lmfp_fac = 1.5 * beta
 
     for i in range(n):
         v2_i = v2[i]
@@ -177,14 +177,14 @@ def calc_kappa_cell(v2, rho, rmid, a_param, b_param, c_param, sigma_m, alph, w_c
 
         coeff, _ = conductivity(
             v2_i, rho[i], sigma_m, w_char, model_id, k_l_ref, k_s_ref,
-            alph, a_param, b_param, c_param, smfp_order,
+            alph, a_param, b_param, beta, smfp_order,
         )
         k[i] = 1.5 * r_i * r_i * coeff
 
     return k_l, k_s, k
 
 @njit(types.Tuple((float64[::1], float64[::1], float64[::1],))(float64[::1], float64[::1], float64[::1], float64, float64, float64, float64, float64, float64, types.int64, float64, float64, types.int64), cache=True)
-def calc_kappa_edge(v2, rho, r, a_param, b_param, c_param, sigma_m, alph, w_char, model_id, k_l_ref, k_s_ref, smfp_order,):
+def calc_kappa_edge(v2, rho, r, a_param, b_param, beta, sigma_m, alph, w_char, model_id, k_l_ref, k_s_ref, smfp_order,):
     """
     Compute LMFP, SMFP, and interpolated conductivities at outer cell edges.
 
@@ -214,8 +214,8 @@ def calc_kappa_edge(v2, rho, r, a_param, b_param, c_param, sigma_m, alph, w_char
         Coefficient a in the SMFP conductivity.
     b_param : float
         Coefficient b in the SMFP conductivity.
-    c_param : float
-        Coefficient c in the LMFP conductivity.
+    beta : float
+        Coefficient beta in the LMFP conductivity.
     sigma_m : float
         Cross-section amplitude per unit mass in characteristic units.
     alph : float
@@ -249,7 +249,7 @@ def calc_kappa_edge(v2, rho, r, a_param, b_param, c_param, sigma_m, alph, w_char
     smfp_fac = 1.5 * b_param / (
         a_param * sigma_m * sigma_m
     )
-    lmfp_fac = 1.5 * c_param
+    lmfp_fac = 1.5 * beta
 
     for i in range(n-1):
         v2_i    = v2_int[i]
@@ -267,7 +267,7 @@ def calc_kappa_edge(v2, rho, r, a_param, b_param, c_param, sigma_m, alph, w_char
 
         coeff, _ = conductivity(
             v2_i, rho_int[i], sigma_m, w_char, model_id, k_l_ref, k_s_ref, 
-            alph, a_param, b_param, c_param, smfp_order,
+            alph, a_param, b_param, beta, smfp_order,
         )
         k[i] = 1.5 * r_i * r_i * coeff
 

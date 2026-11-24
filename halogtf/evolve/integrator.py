@@ -190,7 +190,7 @@ def integrate_time_step(state, config,                                          
     # Store state attributes for fast access in loop and to pass into njit functions
     num = config.num; scatter = config.scatter; char = state.char
 
-    a = float(scatter.a); b = float(scatter.b); c = float(scatter.c)
+    a = float(scatter.a); b = float(scatter.b); beta = float(scatter.beta)
     smfp_order = scatter.smfp_order
     sigma_m_0 = float(char.sigma_m_0_char); w_char = float(char.w_char)
     k_l_ref = float(char.k_l_ref); k_s_ref = float(char.k_s_ref)
@@ -212,7 +212,7 @@ def integrate_time_step(state, config,                                          
 
     ### Step 1: Energy transport ###
     # implicit: work_n1 used to store dv2, x_alloc used for rho_int
-    du_max, dt_prop, iter_du = conduct_implicit_tcool_dulim(v2, rho, r, m, work_n1, t_cool, x_alloc, dt_prop, a, b, c, sigma_m_0, w_char, smfp_order, alph, model_id, eps_du_eff, max_iter_du, k_l_ref, k_s_ref)
+    du_max, dt_prop, iter_du = conduct_implicit_tcool_dulim(v2, rho, r, m, work_n1, t_cool, x_alloc, dt_prop, a, b, beta, sigma_m_0, w_char, smfp_order, alph, model_id, eps_du_eff, max_iter_du, k_l_ref, k_s_ref)
     
     if iter_du == -1:
         raise RuntimeError(f"Step {step_count}: Max iterations exceeded in implicit conduction step.")
